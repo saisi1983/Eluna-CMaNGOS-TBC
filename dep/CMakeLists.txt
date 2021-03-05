@@ -19,6 +19,7 @@
 DisableWarnings()
 add_subdirectory(recastnavigation)
 add_subdirectory(src)
+add_subdirectory(lualib)
 if (BUILD_EXTRACTORS)
   add_subdirectory(libmpq)
 endif()
