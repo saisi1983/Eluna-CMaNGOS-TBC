@@ -81,7 +81,7 @@ bool GossipHello_SkillNPC(Player* player, Creature* creature)
 	{
 		player->ADD_GOSSIP_ITEM(GOSSIP_ICON_INTERACT_2, "I don't know what you are", GOSSIP_SENDER_MAIN, 1000);
 	}
-	player->PlayerTalkClass->SendGossipMenu(player->GetGossipTextId(creature), creature->GetObjectGuid());
+	player->GetPlayerMenu()->SendGossipMenu(player->GetGossipTextId(creature), creature->GetObjectGuid());
 	return true;
 }
 
@@ -104,11 +104,6 @@ bool GossipSelect_SkillNPC(Player* player, Creature* creature, uint32 sender, ui
 	uint16 maxThrownLevel = player->GetSkillMaxPure(SKILL_THROWN);
 	uint16 maxCrossbowsLevel = player->GetSkillMaxPure(SKILL_CROSSBOWS);
 	uint16 maxFistLevel = player->GetSkillMaxPure(SKILL_FIST_WEAPONS);
-
-	Item* earthTotem = player->StoreNewItemInInventorySlot(5175, 1);
-	Item* fireTotem = player->StoreNewItemInInventorySlot(5176, 1);
-	Item* waterTotem = player->StoreNewItemInInventorySlot(5177, 1);
-	Item* airTotem = player->StoreNewItemInInventorySlot(5178, 1);
 
 	uint32 playerRace = player->getRace();
 
@@ -302,10 +297,10 @@ bool GossipSelect_SkillNPC(Player* player, Creature* creature, uint32 sender, ui
 		player->learnSpell(SPELL_OH_AXES, false);
 		player->learnSpell(SPELL_DAGGERS, false);
 		player->learnSpell(SPELL_FIST, false);
-		player->SendNewItem(earthTotem, 1, true, false);
-		player->SendNewItem(fireTotem, 1, true, false);
-		player->SendNewItem(waterTotem, 1, true, false);
-		player->SendNewItem(airTotem, 1, true, false);
+		player->StoreNewItemInInventorySlot(5175, 1);
+		player->StoreNewItemInInventorySlot(5176, 1);
+		player->StoreNewItemInInventorySlot(5177, 1);
+		player->StoreNewItemInInventorySlot(5178, 1);
 		player->GetSession()->SendNotification("You learned all skills.");
 		player->CLOSE_GOSSIP_MENU();
 		break;
@@ -387,7 +382,7 @@ bool GossipSelect_SkillNPC(Player* player, Creature* creature, uint32 sender, ui
 
 	case 1000:
 		player->GetSession()->SendNotification("I can't teach you!");
-		player->PlayerTalkClass->SendGossipMenu(player->GetGossipTextId(creature), creature->GetObjectGuid());
+		player->GetPlayerMenu()->SendGossipMenu(player->GetGossipTextId(creature), creature->GetObjectGuid());
 		break;
 
 	case 1001:

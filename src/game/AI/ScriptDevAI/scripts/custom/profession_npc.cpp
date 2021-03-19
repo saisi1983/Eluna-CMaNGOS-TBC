@@ -89,7 +89,7 @@ bool GossipHello_ProfessionNPC(Player* player, Creature* creature)
     player->ADD_GOSSIP_ITEM(GOSSIP_ICON_INTERACT_2, "Fishing", GOSSIP_SENDER_MAIN, 13);
     player->ADD_GOSSIP_ITEM(GOSSIP_ICON_INTERACT_2, "Cooking", GOSSIP_SENDER_MAIN, 14);
 
-    player->PlayerTalkClass->SendGossipMenu(player->GetGossipTextId(creature), creature->GetObjectGuid());
+    player->GetPlayerMenu()->SendGossipMenu(player->GetGossipTextId(creature), creature->GetObjectGuid());
     return true;
 }
 
@@ -100,72 +100,72 @@ bool GossipSendMainMenu_ProfessionNPC(Player* player, Creature* creature, uint32
     case 1:
         player->ADD_GOSSIP_ITEM(GOSSIP_ICON_INTERACT_2, "Learn Alchemy", GOSSIP_SENDER_SUB, 101);
         player->ADD_GOSSIP_ITEM(GOSSIP_ICON_INTERACT_2, "Unlearn Alchemy", GOSSIP_SENDER_SUB, 102);
-        player->PlayerTalkClass->SendGossipMenu(player->GetGossipTextId(creature), creature->GetObjectGuid());
+        player->GetPlayerMenu()->SendGossipMenu(player->GetGossipTextId(creature), creature->GetObjectGuid());
         break;
     case 2:
         player->ADD_GOSSIP_ITEM(GOSSIP_ICON_INTERACT_2, "Learn Blacksmithing", GOSSIP_SENDER_SUB, 201);
         player->ADD_GOSSIP_ITEM(GOSSIP_ICON_INTERACT_2, "Unlearn Blacksmithing", GOSSIP_SENDER_SUB, 202);
-        player->PlayerTalkClass->SendGossipMenu(player->GetGossipTextId(creature), creature->GetObjectGuid());
+        player->GetPlayerMenu()->SendGossipMenu(player->GetGossipTextId(creature), creature->GetObjectGuid());
         break;
     case 3:
         player->ADD_GOSSIP_ITEM(GOSSIP_ICON_INTERACT_2, "Learn Leatherworking", GOSSIP_SENDER_SUB, 301);
         player->ADD_GOSSIP_ITEM(GOSSIP_ICON_INTERACT_2, "Unlearn Leatherworking", GOSSIP_SENDER_SUB, 302);
-        player->PlayerTalkClass->SendGossipMenu(player->GetGossipTextId(creature), creature->GetObjectGuid());
+        player->GetPlayerMenu()->SendGossipMenu(player->GetGossipTextId(creature), creature->GetObjectGuid());
         break;
     case 4:
         player->ADD_GOSSIP_ITEM(GOSSIP_ICON_INTERACT_2, "Learn Tailoring", GOSSIP_SENDER_SUB, 401);
         player->ADD_GOSSIP_ITEM(GOSSIP_ICON_INTERACT_2, "Unlearn Tailoring", GOSSIP_SENDER_SUB, 402);
-        player->PlayerTalkClass->SendGossipMenu(player->GetGossipTextId(creature), creature->GetObjectGuid());
+        player->GetPlayerMenu()->SendGossipMenu(player->GetGossipTextId(creature), creature->GetObjectGuid());
         break;
     case 5:
         player->ADD_GOSSIP_ITEM(GOSSIP_ICON_INTERACT_2, "Learn Engineering", GOSSIP_SENDER_SUB, 501);
         player->ADD_GOSSIP_ITEM(GOSSIP_ICON_INTERACT_2, "Unlearn Engineering", GOSSIP_SENDER_SUB, 502);
-        player->PlayerTalkClass->SendGossipMenu(player->GetGossipTextId(creature), creature->GetObjectGuid());
+        player->GetPlayerMenu()->SendGossipMenu(player->GetGossipTextId(creature), creature->GetObjectGuid());
         break;
     case 6:
         player->ADD_GOSSIP_ITEM(GOSSIP_ICON_INTERACT_2, "Learn Enchanting", GOSSIP_SENDER_SUB, 601);
         player->ADD_GOSSIP_ITEM(GOSSIP_ICON_INTERACT_2, "Unlearn Enchanting", GOSSIP_SENDER_SUB, 602);
-        player->PlayerTalkClass->SendGossipMenu(player->GetGossipTextId(creature), creature->GetObjectGuid());
+        player->GetPlayerMenu()->SendGossipMenu(player->GetGossipTextId(creature), creature->GetObjectGuid());
         break;
     case 7:
         player->ADD_GOSSIP_ITEM(GOSSIP_ICON_INTERACT_2, "Learn Jewelcrafting", GOSSIP_SENDER_SUB, 701);
         player->ADD_GOSSIP_ITEM(GOSSIP_ICON_INTERACT_2, "Unlearn Jewelcrafting", GOSSIP_SENDER_SUB, 702);
-        player->PlayerTalkClass->SendGossipMenu(player->GetGossipTextId(creature), creature->GetObjectGuid());
+        player->GetPlayerMenu()->SendGossipMenu(player->GetGossipTextId(creature), creature->GetObjectGuid());
         break;
     case 8:
         //player->ADD_GOSSIP_ITEM(GOSSIP_ICON_INTERACT_2, "Learn Inscription", GOSSIP_SENDER_SUB, 801);
         //player->ADD_GOSSIP_ITEM(GOSSIP_ICON_INTERACT_2, "Unlearn Inscription", GOSSIP_SENDER_SUB, 802);
-        //player->PlayerTalkClass->SendGossipMenu(player->GetGossipTextId(creature), creature->GetObjectGuid());
+        //player->GetPlayerMenu()->SendGossipMenu(player->GetGossipTextId(creature), creature->GetObjectGuid());
         break;
     case 9:
         player->ADD_GOSSIP_ITEM(GOSSIP_ICON_INTERACT_2, "Learn Herbalism", GOSSIP_SENDER_SUB, 901);
         player->ADD_GOSSIP_ITEM(GOSSIP_ICON_INTERACT_2, "Unlearn Herbalism", GOSSIP_SENDER_SUB, 902);
-        player->PlayerTalkClass->SendGossipMenu(player->GetGossipTextId(creature), creature->GetObjectGuid());
+        player->GetPlayerMenu()->SendGossipMenu(player->GetGossipTextId(creature), creature->GetObjectGuid());
         break;
     case 10:
         player->ADD_GOSSIP_ITEM(GOSSIP_ICON_INTERACT_2, "Learn Skinning", GOSSIP_SENDER_SUB, 1001);
         player->ADD_GOSSIP_ITEM(GOSSIP_ICON_INTERACT_2, "Unlearn Skinning", GOSSIP_SENDER_SUB, 1002);
-        player->PlayerTalkClass->SendGossipMenu(player->GetGossipTextId(creature), creature->GetObjectGuid());
+        player->GetPlayerMenu()->SendGossipMenu(player->GetGossipTextId(creature), creature->GetObjectGuid());
         break;
     case 11:
         player->ADD_GOSSIP_ITEM(GOSSIP_ICON_INTERACT_2, "Learn Mining", GOSSIP_SENDER_SUB, 1101);
         player->ADD_GOSSIP_ITEM(GOSSIP_ICON_INTERACT_2, "Unlearn Mining", GOSSIP_SENDER_SUB, 1102);
-        player->PlayerTalkClass->SendGossipMenu(player->GetGossipTextId(creature), creature->GetObjectGuid());
+        player->GetPlayerMenu()->SendGossipMenu(player->GetGossipTextId(creature), creature->GetObjectGuid());
         break;
     case 12:
         player->ADD_GOSSIP_ITEM(GOSSIP_ICON_INTERACT_2, "Learn First Aid", GOSSIP_SENDER_SUB, 1201);
         player->ADD_GOSSIP_ITEM(GOSSIP_ICON_INTERACT_2, "Unlearn First Aid", GOSSIP_SENDER_SUB, 1202);
-        player->PlayerTalkClass->SendGossipMenu(player->GetGossipTextId(creature), creature->GetObjectGuid());
+        player->GetPlayerMenu()->SendGossipMenu(player->GetGossipTextId(creature), creature->GetObjectGuid());
         break;
     case 13:
         player->ADD_GOSSIP_ITEM(GOSSIP_ICON_INTERACT_2, "Learn Fishing", GOSSIP_SENDER_SUB, 1301);
         player->ADD_GOSSIP_ITEM(GOSSIP_ICON_INTERACT_2, "Unlearn Fishing", GOSSIP_SENDER_SUB, 1302);
-        player->PlayerTalkClass->SendGossipMenu(player->GetGossipTextId(creature), creature->GetObjectGuid());
+        player->GetPlayerMenu()->SendGossipMenu(player->GetGossipTextId(creature), creature->GetObjectGuid());
         break;
     case 14:
         player->ADD_GOSSIP_ITEM(GOSSIP_ICON_INTERACT_2, "Learn Cooking", GOSSIP_SENDER_SUB, 1401);
         player->ADD_GOSSIP_ITEM(GOSSIP_ICON_INTERACT_2, "Unlearn Cooking", GOSSIP_SENDER_SUB, 1402);
-        player->PlayerTalkClass->SendGossipMenu(player->GetGossipTextId(creature), creature->GetObjectGuid());
+        player->GetPlayerMenu()->SendGossipMenu(player->GetGossipTextId(creature), creature->GetObjectGuid());
         break;
     }
     return true;
