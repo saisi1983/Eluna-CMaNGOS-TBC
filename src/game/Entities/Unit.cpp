@@ -6257,7 +6257,7 @@ FactionTemplateEntry const* Unit::GetFactionTemplateEntry() const
     return entry;
 }
 
-bool Unit::IsHostileTo(Unit const* unit) const
+/*bool Unit::IsHostileTo(Unit const* unit) const
 {
     // always non-hostile to self
     if (unit == this)
@@ -6492,7 +6492,7 @@ bool Unit::IsHostileToPlayers() const
         return false;
 
     return my_faction->IsHostileToPlayers();
-}
+}*/
 
 bool Unit::IsNeutralToAll() const
 {
