@@ -5967,6 +5967,42 @@ void Player::UpdateSkillsForLevel(bool maximize/* = false*/)
     }
 }
 
+void Player::UpdateSkillsToMaxSkillsForLevel()
+{
+    for (SkillStatusMap::iterator itr = mSkillStatus.begin(); itr != mSkillStatus.end(); ++itr)
+    {
+        SkillStatusData& skillStatus = itr->second;
+        if (skillStatus.uState == SKILL_DELETED)
+        {
+            continue;
+        }
+
+        uint32 pskill = itr->first;
+        if (IsProfessionOrRidingSkill(pskill))
+        {
+            continue;
+        }
+        uint32 valueIndex = PLAYER_SKILL_VALUE_INDEX(skillStatus.pos);
+        uint32 data = GetUInt32Value(valueIndex);
+
+        uint32 max = SKILL_MAX(data);
+
+        if (max > 1)
+        {
+            SetUInt32Value(valueIndex, MAKE_SKILL_VALUE(max, max));
+            if (skillStatus.uState != SKILL_NEW)
+            {
+                skillStatus.uState = SKILL_CHANGED;
+            }
+        }
+
+        if (pskill == SKILL_DEFENSE)
+        {
+            UpdateDefenseBonusesMod();
+        }
+    }
+}
+
 void Player::UpdateSkillTrainedSpells(uint16 id, uint16 currVal)
 {
     uint32 raceMask  = getRaceMask();

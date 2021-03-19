@@ -1768,6 +1768,7 @@ class Player : public Unit
         inline int16 GetSkillBonusPermanent(uint16 id) const { return GetSkillBonus(id, true); }    // skill perm. bonus
         inline int16 GetSkillBonusTemporary(uint16 id) const { return GetSkillBonus(id); }          // skill temp bonus
         void UpdateSkillsForLevel(bool maximize = false);
+        void UpdateSkillsToMaxSkillsForLevel();
         void UpdateSkillTrainedSpells(uint16 id, uint16 currVal);                                   // learns/unlearns spells dependent on a skill
         void UpdateSpellTrainedSkills(uint32 spellId, bool apply);                                  // learns/unlearns skills dependent on a spell
         void LearnDefaultSkills();
