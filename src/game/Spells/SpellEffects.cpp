@@ -588,13 +588,6 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
         {
             switch (m_spellInfo->Id)
             {
-                case 2400:                                  // Transfer Powers
-                {
-                    if (unitTarget)
-                        m_caster->CastSpell(unitTarget, 26565, TRIGGERED_OLD_TRIGGERED);   // Heal Brethren
-
-                    return;
-                }
                 case 3360:                                  // Curse of the Eye
                 {
                     if (unitTarget)
@@ -1633,12 +1626,6 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                 case 28238:                                 // Zombie Chow Search
                 {
                     m_caster->SetHealth(m_caster->GetHealth() + m_caster->GetMaxHealth() * 0.05f); // Gain 5% heal
-                    return;
-                }
-                case 28307:                                 // Hateful Strike Primer
-                {
-                    // Target is filtered in Spell::FilterTargetMap
-                    m_caster->CastSpell(unitTarget, 28308, TRIGGERED_NONE); // Hateful Strike
                     return;
                 }
                 case 28359:                                 // Trigger Teslas
@@ -3433,21 +3420,12 @@ void Spell::EffectTriggerSpell(SpellEffectIndex effIndex)
         case 29950:
             m_caster->RemoveAurasDueToSpellByCancel(29947);
             return;
-        // Priest Shadowfiend (34433) need apply mana gain trigger aura on pet
-        case 41967:
-        {
-            if (Unit* pet = unitTarget->GetPet())
-            {
-                pet->CastSpell(pet, 28305, TRIGGERED_OLD_TRIGGERED);
-                pet->AI()->AttackStart(m_caster->GetTarget());
-            }
-            return;
-        }
         case 44949:
             // triggered spell have same category
             if (m_caster->GetTypeId() == TYPEID_PLAYER)
                 m_caster->RemoveSpellCooldown(triggered_spell_id);
             break;
+        case 41967: // Priest Shadowfiend (34433) - handled in spell script
         case 47531: // Dismiss pet - suppress error
             return;
     }
