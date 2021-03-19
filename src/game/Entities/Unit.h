@@ -1334,6 +1334,9 @@ class Unit : public WorldObject
         void setFaction(uint32 faction) { SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, faction); }
         FactionTemplateEntry const* GetFactionTemplateEntry() const;
         void RestoreOriginalFaction();
+        bool IsHostileTo(Unit const* unit) const;
+        bool IsHostileToPlayers() const;
+        bool IsFriendlyTo(Unit const* unit) const;
         bool IsNeutralToAll() const;
         bool IsContestedGuard() const
         {
@@ -1749,6 +1752,7 @@ class Unit : public WorldObject
 
         Unit* GetCharm(WorldObject const* pov = nullptr) const;
         Unit* GetCharmer(WorldObject const* pov = nullptr) const;
+        Unit* GetCharmerOrOwner() const { return GetCharmerGuid() ? GetCharmer() : GetOwner(); }
         Unit* GetCreator(WorldObject const* pov = nullptr) const;
         Unit* GetTarget(WorldObject const* pov = nullptr) const;
         Unit* GetChannelObject(WorldObject const* pov = nullptr) const;
