@@ -140,6 +140,7 @@ class SpellAuraHolder
         bool IsDeleted() const { return m_deleted;}
         bool IsEmptyHolder() const;
         bool IsSaveToDbHolder() const;
+        bool IsCharm() const;
 
         void SetDeleted() { m_deleted = true; m_spellAuraHolderState = SPELLAURAHOLDER_STATE_REMOVING; }
 
@@ -499,6 +500,8 @@ class Aura
 
         void UseMagnet() { m_magnetUsed = true; }
         bool IsMagnetUsed() const { return m_magnetUsed; }
+
+        static uint32 CalculateAuraEffectValue(Unit* caster, Unit* target, SpellEntry const* spellProto, SpellEffectIndex effIdx, uint32 value);
 
         // Scripting system
         AuraScript* GetAuraScript() const { return GetHolder()->GetAuraScript(); }

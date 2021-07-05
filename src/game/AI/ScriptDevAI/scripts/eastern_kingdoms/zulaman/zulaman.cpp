@@ -198,9 +198,9 @@ void instance_zulaman::OnCreatureEvade(Creature* creature)
                 if (!temp)
                     break;
 
-                if (!temp->IsAlive())
-                    temp->Respawn();
-                
+                temp->ForcedDespawn();
+                temp->Respawn();
+
                 temp->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC | UNIT_FLAG_IMMUNE_TO_PLAYER);
             }
             m_nalorakkEvent[m_uiBearEventPhase].trashKilledCount = 0;
@@ -302,12 +302,20 @@ void instance_zulaman::OnObjectCreate(GameObject* pGo)
         case GO_AMANI_DRUM:
             break;
         case GO_ALTAR_TORCH_EAGLE_GOD:
+            if (m_auiEncounter[TYPE_AKILZON] == DONE)
+                pGo->SetGoState(GO_STATE_ACTIVE);
             break;
         case GO_ALTAR_TORCH_DRAGONHAWK_GOD:
+            if (m_auiEncounter[TYPE_JANALAI] == DONE)
+                pGo->SetGoState(GO_STATE_ACTIVE);
             break;
         case GO_ALTAR_TORCH_LYNX_GOD:
+            if (m_auiEncounter[TYPE_HALAZZI] == DONE)
+                pGo->SetGoState(GO_STATE_ACTIVE);
             break;
         case GO_ALTAR_TORCH_BEAR_GOD:
+            if (m_auiEncounter[TYPE_NALORAKK] == DONE)
+                pGo->SetGoState(GO_STATE_ACTIVE);
             break;
         default:
             return;

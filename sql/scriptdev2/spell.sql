@@ -31,6 +31,7 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (23226,'spell_ritual_candle_aura'),
 (24693,'spell_hakkar_power_down'),
 (25684,'spell_summon_mana_fiends_moam'),
+(25813,'spell_conjure_dream_rift'),
 (25885,'spell_viscidus_summon_globs'),
 (25926,'spell_viscidus_frost_weakness'),
 (25937,'spell_viscidus_freeze'),
@@ -46,6 +47,7 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (26230,'spell_cthun_exit_stomach'),
 (26237,'spell_cthun_tentacles_summon'),
 (26256,'spell_cthun_check_reset'),
+(26275,'spell_wondervolt_trap'),
 (26332,'spell_cthun_mouth_tentacle'),
 (26398,'spell_cthun_tentacles_summon'),
 (26476,'spell_cthun_digestive_acid_periodic'),
@@ -57,6 +59,7 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (26686,'spell_aq_whirlwind'),
 (26767,'spell_cthun_tentacles_summon'),
 (26769,'spell_cthun_periodic_eye_trigger'),
+(28006,'spell_arcane_cloaking'),
 (28282,'spell_ashbringer_item'),
 (27808,'spell_kel_thuzad_frost_blast'),
 (28307,'spell_patchwerk_hatefulstrike'),
@@ -72,14 +75,19 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (28417,'spell_trigger_KT_add'),
 (28455,'spell_trigger_KT_add'),
 (28441,'spell_ab_effect_000'),
+(28617,'spell_web_wrap'),
+(28628,'spell_clear_web_wrap'),
+(28629,'spell_clear_web_wrap'),
 (28732,'spell_faerlina_widow_embrace'),
 (28749,'spell_check_gothik_side'),
 (28781,'spell_gothik_side_assault'),
 (29201,'spell_loatheb_corrupted_mind'),
 (29330,'spell_sapphiron_despawn_buffet'),
+(29351,'spell_plague_wave_controller'),
 (29874,'spell_gothik_side_assault'),
 (29875,'spell_check_gothik_side'),
 (29897,'spell_icecrown_guardian_periodic'),
+(30114,'spell_plague_wave_controller'),
 (30132,'spell_sapphiron_iceblock');
 
 -- TBC
@@ -279,6 +287,7 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (15326,'spell_blackout'),
 (27827,'spell_spirit_of_redemption_heal'),
 (32676,'spell_consume_magic'),
+(33076,'spell_prayer_of_mending'),
 (34433,'spell_shadowfiend');
 
 -- Paladin

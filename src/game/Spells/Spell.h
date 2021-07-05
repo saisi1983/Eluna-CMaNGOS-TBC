@@ -38,6 +38,7 @@ class Group;
 class Aura;
 struct SpellTargetEntry;
 struct SpellScript;
+struct AuraScript;
 
 enum SpellCastFlags
 {
@@ -385,7 +386,7 @@ class Spell
         void EffectKnockBackFromPosition(SpellEffectIndex eff_idx);
         void EffectCreateTamedPet(SpellEffectIndex eff_ifx);
 
-        Spell(Unit* caster, SpellEntry const* info, uint32 triggeredFlags, ObjectGuid originalCasterGUID = ObjectGuid(), SpellEntry const* triggeredBy = nullptr);
+        Spell(WorldObject* caster, SpellEntry const* info, uint32 triggeredFlags, ObjectGuid originalCasterGUID = ObjectGuid(), SpellEntry const* triggeredBy = nullptr);
         ~Spell();
 
         SpellCastResult SpellStart(SpellCastTargets const* targets, Aura* triggeredByAura = nullptr);
@@ -415,7 +416,8 @@ class Spell
         SpellCastResult CheckPower(bool strict);
         SpellCastResult CheckCasterAuras() const;
 
-        int32 CalculateSpellEffectValue(SpellEffectIndex i, Unit* target, bool maximum = false) { return m_caster->CalculateSpellEffectValue(target, m_spellInfo, i, &m_currentBasePoints[i], maximum); }
+        int32 CalculateSpellEffectValue(SpellEffectIndex i, Unit* target, bool maximum = false, bool finalUse = true)
+        { return m_trueCaster->CalculateSpellEffectValue(target, m_spellInfo, i, &m_currentBasePoints[i], maximum, finalUse); }
         int32 CalculateSpellEffectDamage(Unit* unitTarget, int32 damage);
         static uint32 CalculatePowerCost(SpellEntry const* spellInfo, Unit* caster, Spell* spell = nullptr, Item* castItem = nullptr, bool finalUse = false);
 
@@ -475,12 +477,14 @@ class Spell
         void ProcessAOECaps();
         // void HandleAddAura(Unit* Target);
 
+        void SetCastItem(Item* item);
+        Item* GetCastItem() { return m_CastItem; }
+
         SpellEntry const* m_spellInfo;
         SpellEntry const* m_triggeredBySpellInfo;
         int32 m_currentBasePoints[MAX_EFFECT_INDEX];        // cache SpellEntry::CalculateSimpleValue and use for set custom base points
 
         ObjectGuid m_CastItemGuid;
-        Item* m_CastItem;
         uint8 m_cast_count;
         SpellCastTargets m_targets;
 
@@ -687,7 +691,8 @@ class Spell
         TargetList& GetTargetList() { return m_UniqueTargetInfo; }
 
         // GO casting preparations
-        void SetTrueCaster(WorldObject* caster) { m_trueCaster = caster; }
+        void SetFakeCaster(Unit* caster) { m_caster = caster; }
+        WorldObject* GetTrueCaster() const { return m_trueCaster; }
     protected:
         void SendLoot(ObjectGuid guid, LootType loottype, LockType lockType);
         bool IgnoreItemRequirements() const;                // some item use spells have unexpected reagent data
@@ -700,6 +705,8 @@ class Spell
         std::pair<float, float> GetMinMaxRange(bool strict);
 
         Unit* m_caster;
+        Item* m_CastItem;
+        bool m_itemCastSpell;
 
         ObjectGuid m_originalCasterGUID;                    // real source of cast (aura caster/etc), used for spell targets selection
         // e.g. damage around area spell trigered by victim aura and da,age emeies of aura caster
@@ -816,6 +823,7 @@ class Spell
         // Scripting System
         uint64 m_scriptValue; // persistent value for spell script state
         SpellScript* m_spellScript;
+        AuraScript* m_auraScript; // needed for some checks for value calculation
 
         uint32 m_spellState;
         uint32 m_timer;

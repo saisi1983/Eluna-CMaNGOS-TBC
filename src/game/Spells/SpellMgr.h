@@ -220,6 +220,57 @@ inline bool IsAuraRemoveOnStacking(SpellEntry const* spellInfo, int32 effIdx) //
     }
 }
 
+inline bool IsCharmAura(SpellEntry const* spellInfo, int32 effIdx) // TODO: extend to all effects
+{
+    switch (spellInfo->EffectApplyAuraName[effIdx])
+    {
+        case SPELL_AURA_MOD_CHARM:
+        case SPELL_AURA_AOE_CHARM:
+        case SPELL_AURA_MOD_POSSESS:
+            return false;
+        default:
+            return true;
+    }
+}
+
+inline bool IsAuraRefreshInsteadOfRecast(SpellEntry const* spellInfo, int32 effIdx) // TODO: extend to all effects
+{
+    switch (spellInfo->EffectApplyAuraName[effIdx])
+    {
+        case SPELL_AURA_NONE:
+        case SPELL_AURA_MOD_STAT:
+        case SPELL_AURA_MOD_RESISTANCE:
+        case SPELL_AURA_MOD_BASE_RESISTANCE:
+        case SPELL_AURA_MOD_RESISTANCE_EXCLUSIVE:
+        case SPELL_AURA_MOD_INCREASE_ENERGY:
+        case SPELL_AURA_MOD_TOTAL_STAT_PERCENTAGE:
+        case SPELL_AURA_MOD_THREAT:
+        case SPELL_AURA_MOD_DAMAGE_TAKEN:
+        case SPELL_AURA_PROC_TRIGGER_DAMAGE:
+            return true;
+        case SPELL_AURA_DUMMY:
+        {
+            switch (spellInfo->Id)
+            {
+                case 39921:                             // Vim'Gol Pentagram Beam
+                    return true;
+                default:
+                    return false;
+            }
+        }
+        default:
+            return false;
+    }
+}
+
+inline bool IsAuraSpellRefreshInsteadOfRecast(SpellEntry const* spellInfo)
+{
+    if (IsAuraRefreshInsteadOfRecast(spellInfo, 0) && IsAuraRefreshInsteadOfRecast(spellInfo, 1) && IsAuraRefreshInsteadOfRecast(spellInfo, 2))
+        return true;
+
+    return false;
+}
+
 inline bool IsAllowingDeadTarget(SpellEntry const* spellInfo)
 {
     return spellInfo->HasAttribute(SPELL_ATTR_EX2_CAN_TARGET_DEAD) || spellInfo->HasAttribute(SPELL_ATTR_PASSIVE) || spellInfo->Targets & (TARGET_FLAG_CORPSE_ENEMY | TARGET_FLAG_UNIT_DEAD | TARGET_FLAG_CORPSE_ALLY);
@@ -374,8 +425,12 @@ inline bool IsSpellSetRun(SpellEntry const* spellInfo)
 {
     switch (spellInfo->Id)
     {
-        case 30445:     // Stillpine Ancestor Yor
-        case 39163:     // [DND]Rescue Wyvern
+        case 30445: // Stillpine Ancestor Yor
+        case 39163: // [DND]Rescue Wyvern
+        case 43486: // Summon Amani'shi Warriors
+        case 43487: // Summon Amani Eagle
+        case 46214: // Summon Imp
+        case 46245: // Summon Shadowsword Deathbringer
             return true;
         default:
             return false;
@@ -922,6 +977,67 @@ inline bool IsOnlySelfTargeting(SpellEntry const* spellInfo)
         }
     }
     return true;
+}
+ 
+inline bool IsDirectDamageSpell(SpellEntry const* spellInfo)
+{
+    if (spellInfo->Effect[EFFECT_INDEX_0] == SPELL_EFFECT_SCHOOL_DAMAGE || spellInfo->Effect[EFFECT_INDEX_0] == SPELL_EFFECT_WEAPON_DAMAGE_NOSCHOOL)
+        return true;
+
+    if (spellInfo->Effect[EFFECT_INDEX_1] == SPELL_EFFECT_SCHOOL_DAMAGE || spellInfo->Effect[EFFECT_INDEX_1] == SPELL_EFFECT_WEAPON_DAMAGE_NOSCHOOL)
+        return true;
+
+    if (spellInfo->Effect[EFFECT_INDEX_2] == SPELL_EFFECT_SCHOOL_DAMAGE || spellInfo->Effect[EFFECT_INDEX_2] == SPELL_EFFECT_WEAPON_DAMAGE_NOSCHOOL)
+        return true;
+
+    return false;
+}
+
+inline bool IsCheckCastTarget(uint32 target)
+{
+    // copy of checkcast block for attackability and assistability
+    auto& data = SpellTargetInfoTable[target];
+    if (data.type == TARGET_TYPE_UNIT && data.filter != TARGET_SCRIPT && (data.enumerator == TARGET_ENUMERATOR_SINGLE || data.enumerator == TARGET_ENUMERATOR_CHAIN))
+    {
+        switch (target)
+        {
+            case TARGET_UNIT_ENEMY_NEAR_CASTER:
+            case TARGET_UNIT_FRIEND_NEAR_CASTER:
+            case TARGET_UNIT_NEAR_CASTER:
+            case TARGET_UNIT_CASTER_MASTER:
+            case TARGET_UNIT_CASTER: break; // never check anything
+            default: return true;
+        }
+    }
+
+    return false;
+}
+
+inline uint32 GetCheckCastEffectMask(SpellEntry const* spellInfo)
+{
+    uint32 resultingMask = 0;
+    for (uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
+        if (IsCheckCastTarget(spellInfo->EffectImplicitTargetA[i]) || IsCheckCastTarget(spellInfo->EffectImplicitTargetB[i]))
+            resultingMask |= (1 << i);
+    return resultingMask;
+}
+
+inline bool HasSpellTarget(SpellEntry const* spellInfo, uint32 target)
+{
+    for (uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
+        if (spellInfo->EffectImplicitTargetA[i] == target)
+            return true;
+
+    return false;
+}
+
+inline uint32 GetCheckCastSelfEffectMask(SpellEntry const* spellInfo)
+{
+    uint32 resultingMask = 0;
+    for (uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
+        if (HasSpellTarget(spellInfo, TARGET_UNIT_CASTER))
+            resultingMask |= (1 << i);
+    return resultingMask;
 }
 
 inline bool IsUnitTargetTarget(uint32 target)
@@ -2020,7 +2136,7 @@ inline bool IsSimilarExistingAuraStronger(const SpellAuraHolder* holder, const S
     return false;
 }
 
-inline bool IsSimilarExistingAuraStronger(const Unit* caster, const SpellEntry* entry, const SpellAuraHolder* existing)
+inline bool IsSimilarExistingAuraStronger(const Unit* caster, const SpellEntry* entry, const SpellAuraHolder* existing, uint32 affectedMask, int32 amounts[MAX_EFFECT_INDEX])
 {
     if (!caster || !existing)
         return false;
@@ -2034,44 +2150,29 @@ inline bool IsSimilarExistingAuraStronger(const Unit* caster, const SpellEntry* 
 
     for (uint32 e = EFFECT_INDEX_0; e < MAX_EFFECT_INDEX; ++e)
     {
-        for (uint32 e2 = EFFECT_INDEX_0; e2 < MAX_EFFECT_INDEX; ++e2)
+        if (affectedMask & (1 << e))
         {
-            if (IsSimilarAuraEffect(entry, e, entry2, e2) && !(effectmask1 & (1 << e)) && !(effectmask2 & (1 << e2)))
+            for (uint32 e2 = EFFECT_INDEX_0; e2 < MAX_EFFECT_INDEX; ++e2)
             {
-                effectmask1 |= (1 << e);
-                effectmask2 |= (1 << e2);
-                Aura* aura = existing->GetAuraByEffectIndex(SpellEffectIndex(e2));
-                int32 value = entry->CalculateSimpleValue(SpellEffectIndex(e));
-                int32 value2 = aura ? (aura->GetModifier()->m_amount / int32(aura->GetStackAmount())) : 0;
-                // FIXME: We need API to peacefully pre-calculate static base spell damage without destroying mods
-                // Until then this is a rather lame set of hacks
-                // Apply combo points base damage for spells like expose armor
-                if (caster->GetTypeId() == TYPEID_PLAYER)
+                if (IsSimilarAuraEffect(entry, e, entry2, e2) && !(effectmask1 & (1 << e)) && !(effectmask2 & (1 << e2)))
                 {
-                    const Player* player = (const Player*)caster;
-                    const Unit* target = existing->GetTarget();
-                    const float comboDamage = entry->EffectPointsPerComboPoint[e];
-                    if (player && target && (target->GetObjectGuid() == player->GetComboTargetGuid()))
-                        value += int32(comboDamage * player->GetComboPoints());
+                    effectmask1 |= (1 << e);
+                    effectmask2 |= (1 << e2);
+                    Aura* aura = existing->GetAuraByEffectIndex(SpellEffectIndex(e2));
+                    int32 value = amounts[e];
+                    int32 value2 = aura ? (aura->GetModifier()->m_amount / int32(aura->GetStackAmount())) : 0;
+                    if (value < 0 && value2 < 0)
+                    {
+                        value = abs(value);
+                        value2 = abs(value2);
+                    }
+                    if (value2 > value)
+                        return true;
                 }
-                if (value < 0 && value2 < 0)
-                {
-                    value = abs(value);
-                    value2 = abs(value2);
-                }
-                if (value2 > value)
-                    return true;
             }
         }
     }
     return false;
-}
-
-inline bool IsSimilarExistingAuraStronger(const Unit* caster, uint32 spellid, const SpellAuraHolder* existing)
-{
-    if (!spellid)
-        return false;
-    return IsSimilarExistingAuraStronger(caster, sSpellTemplate.LookupEntry<SpellEntry>(spellid), existing);
 }
 
 // Diminishing Returns interaction with spells

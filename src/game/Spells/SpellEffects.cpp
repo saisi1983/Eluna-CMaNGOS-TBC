@@ -378,7 +378,7 @@ void Spell::EffectSchoolDMG(SpellEffectIndex eff_idx)
                     case 43657: // Electrical Storm - Akil'zon
                     {
                         if (Aura* aura = m_caster->GetAura(43648, EFFECT_INDEX_1))
-                            damage *= std::min(aura->GetAuraTicks(), uint32(3));
+                            damage *= aura->GetAuraTicks();
                         break;
                     }
                 }
@@ -1556,14 +1556,6 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                     static_cast<Creature*>(m_caster)->ForcedDespawn(2000);
                     return;
                 }
-                case 28006:                                 // Arcane Cloaking
-                {
-                    // Naxxramas Entry Flag Effect DND
-                    if (unitTarget && unitTarget->GetTypeId() == TYPEID_PLAYER)
-                        m_caster->CastSpell(unitTarget, 29296, TRIGGERED_OLD_TRIGGERED);
-
-                    return;
-                }
                 case 28089:                                 // Polarity Shift
                 {
                     if (!unitTarget)
@@ -1648,7 +1640,7 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                 }
                 case 28697:                                 // Forgiveness
                 {
-                    unitTarget->CastSpell(nullptr, 3617, TRIGGERED_OLD_TRIGGERED); // guessed suicide spell
+                    unitTarget->CastSpell(nullptr, 29266, TRIGGERED_OLD_TRIGGERED); // guessed permanent feign death spell
                     return;
                 }
                 case 28730:                                 // Arcane Torrent (Mana)
@@ -4912,7 +4904,7 @@ void Spell::EffectDispel(SpellEffectIndex eff_idx)
             {
                 // do not remove positive auras if friendly target
                 //               negative auras if non-friendly target
-                if (holder->IsPositive() == m_caster->CanAssistSpell(unitTarget, m_spellInfo))
+                if ((holder->IsPositive() || holder->IsCharm()) == m_caster->CanAssistSpell(unitTarget, m_spellInfo))
                     continue;
             }
             dispelList.push_back(std::pair<SpellAuraHolder*, uint32>(holder, holder->GetStackAmount()));
@@ -6563,19 +6555,6 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     m_caster->CastSpell(unitTarget, spells[urand(0, 2)], TRIGGERED_OLD_TRIGGERED);
                     return;
                 }
-                case 26275:                                 // PX-238 Winter Wondervolt TRAP
-                {
-                    uint32 spells[4] = {26272, 26157, 26273, 26274};
-
-                    // check presence
-                    for (int j = 0; j < 4; ++j)
-                        if (unitTarget->HasAura(spells[j], EFFECT_INDEX_0))
-                            return;
-
-                    // cast
-                    unitTarget->CastSpell(unitTarget, spells[urand(0, 3)], TRIGGERED_OLD_TRIGGERED);
-                    return;
-                }
                 case 26465:                                 // Mercurial Shield - need remove one 26464 Mercurial Shield aura
                     unitTarget->RemoveAuraHolderFromStack(26464);
                     return;
@@ -6794,42 +6773,6 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     int32 damage = unitTarget->GetHealth() - unitTarget->GetMaxHealth() * 0.05f;
                     if (damage > 0)
                         m_caster->CastCustomSpell(unitTarget, 28375, &damage, nullptr, nullptr, TRIGGERED_OLD_TRIGGERED);
-                    return;
-                }
-                case 28617:                                 // Web Wrap (Maexxna: pull spell initialiser)
-                {
-                    if (!m_originalCaster)
-                        return;
-
-                    if (!unitTarget || unitTarget->GetTypeId() != TYPEID_UNIT || m_caster->GetTypeId() != TYPEID_PLAYER)
-                        return;
-
-                    float dist = m_caster->GetDistance(unitTarget, false);
-                    // Switch the pull target spell based on the distance from the web wrap position
-                    uint32 pullSpellId = 28621;
-                    if (dist < 25.0f)
-                        pullSpellId = 28618;
-                    else if (dist < 50.0f)
-                        pullSpellId = 28619;
-                    else if (dist < 75.0f)
-                        pullSpellId = 28620;
-
-                    unitTarget->CastSpell(m_caster, pullSpellId, TRIGGERED_OLD_TRIGGERED, nullptr, nullptr, m_originalCaster->GetObjectGuid());
-                    return;
-                }
-                case 28628:                                 // Clear Web Wrap (Maexxna: clear effects on player)
-                {
-                    if (unitTarget && unitTarget->GetTypeId() == TYPEID_PLAYER)
-                    {
-                        unitTarget->RemoveAurasDueToSpell(28627); // Web Wrap polymorph
-                        unitTarget->RemoveAurasDueToSpell(28622); // Web Wrap stun and DoT
-                    }
-                    return;
-                }
-                case 28629:                                 // Clear Web Wrap (Maexxna: kill Web Wrap NPC)
-                {
-                    if (unitTarget && unitTarget->GetTypeId() == TYPEID_UNIT)
-                        unitTarget->CastSpell(nullptr, 29108, TRIGGERED_OLD_TRIGGERED);  // Kill Web Wrap
                     return;
                 }
                 case 29336:                                 // Despawn Buffet
