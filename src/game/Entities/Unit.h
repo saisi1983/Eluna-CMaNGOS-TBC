@@ -396,8 +396,9 @@ enum UnitState
 
     // High-Level states (usually only with Creatures)
     UNIT_STAT_NO_COMBAT_MOVEMENT    = 0x01000000,           // Combat Movement for MoveChase stopped
-    UNIT_STAT_RUNNING               = 0x02000000,           // SetRun for waypoints and such
-    UNIT_STAT_WAYPOINT_PAUSED       = 0x04000000,           // Waypoint-Movement paused genericly (ie by script)
+    UNIT_STAT_NO_FOLLOW_MOVEMENT    = 0x02000000,
+    UNIT_STAT_RUNNING               = 0x04000000,           // SetRun for waypoints and such
+    UNIT_STAT_WAYPOINT_PAUSED       = 0x08000000,           // Waypoint-Movement paused genericly (ie by script)
 
     UNIT_STAT_IGNORE_PATHFINDING    = 0x10000000,           // do not use pathfinding in any MovementGenerator
 
@@ -437,6 +438,19 @@ enum UnitState
 };
 
 #define BASE_CHARGE_SPEED 27.0f
+
+typedef const Opcodes SpeedOpcodePair[3];
+SpeedOpcodePair SetSpeed2Opc_table[MAX_MOVE_TYPE] =
+{
+    {SMSG_FORCE_WALK_SPEED_CHANGE,        SMSG_SPLINE_SET_WALK_SPEED,           MSG_MOVE_SET_WALK_SPEED},
+    {SMSG_FORCE_RUN_SPEED_CHANGE,         SMSG_SPLINE_SET_RUN_SPEED,            MSG_MOVE_SET_RUN_SPEED},
+    {SMSG_FORCE_RUN_BACK_SPEED_CHANGE,    SMSG_SPLINE_SET_RUN_BACK_SPEED,       MSG_MOVE_SET_RUN_BACK_SPEED},
+    {SMSG_FORCE_SWIM_SPEED_CHANGE,        SMSG_SPLINE_SET_SWIM_SPEED,           MSG_MOVE_SET_SWIM_SPEED},
+    {SMSG_FORCE_SWIM_BACK_SPEED_CHANGE,   SMSG_SPLINE_SET_SWIM_BACK_SPEED,      MSG_MOVE_SET_SWIM_BACK_SPEED},
+    {SMSG_FORCE_TURN_RATE_CHANGE,         SMSG_SPLINE_SET_TURN_RATE,            MSG_MOVE_SET_TURN_RATE},
+    {SMSG_FORCE_FLIGHT_SPEED_CHANGE,      SMSG_SPLINE_SET_FLIGHT_SPEED,         MSG_MOVE_SET_FLIGHT_SPEED},
+    {SMSG_FORCE_FLIGHT_BACK_SPEED_CHANGE, SMSG_SPLINE_SET_FLIGHT_BACK_SPEED,    MSG_MOVE_SET_FLIGHT_BACK_SPEED},
+};
 
 enum CombatRating
 {
@@ -675,12 +689,13 @@ inline const char* UnitCombatDieSideText(UnitCombatDieSide side)
 
 struct CleanDamage
 {
-    CleanDamage(uint32 _damage, WeaponAttackType _attackType, MeleeHitOutcome _hitOutCome) :
-        damage(_damage), attackType(_attackType), hitOutCome(_hitOutCome) {}
+    CleanDamage(uint32 _damage, WeaponAttackType _attackType, MeleeHitOutcome _hitOutCome, bool _takenOrAbsorbedDamage) :
+        damage(_damage), attackType(_attackType), hitOutCome(_hitOutCome), takenOrAbsorbedDamage(_takenOrAbsorbedDamage) {}
 
     uint32 damage; // only used for rage generation
     WeaponAttackType attackType;
     MeleeHitOutcome hitOutCome;
+    bool takenOrAbsorbedDamage;
 };
 
 struct SubDamageInfo
@@ -708,19 +723,20 @@ struct CalcDamageInfo
     uint32 procVictim;
     uint32 procEx;
     uint32 cleanDamage;          // Used only for rage calculation
+    uint32 absorb;
     MeleeHitOutcome hitOutCome;  // TODO: remove this field (need use TargetState)
 };
 
 // Spell damage info structure based on structure sending in SMSG_SPELLNONMELEEDAMAGELOG opcode
 struct SpellNonMeleeDamage
 {
-    SpellNonMeleeDamage(Unit* _attacker, Unit* _target, uint32 _SpellID, SpellSchoolMask _schoolMask)
+    SpellNonMeleeDamage(WorldObject* _attacker, Unit* _target, uint32 _SpellID, SpellSchoolMask _schoolMask, Spell* spell = nullptr)
         : target(_target), attacker(_attacker), SpellID(_SpellID), damage(0), schoolMask(_schoolMask),
-          absorb(0), resist(0), periodicLog(false), unused(false), blocked(0), HitInfo(0)
+          absorb(0), resist(0), periodicLog(false), unused(false), blocked(0), HitInfo(0), spell(spell)
     {}
 
     Unit*   target;
-    Unit*   attacker;
+    WorldObject* attacker;
     uint32 SpellID;
     uint32 damage;
     SpellSchoolMask schoolMask;
@@ -730,6 +746,7 @@ struct SpellNonMeleeDamage
     bool   unused;
     uint32 blocked;
     uint32 HitInfo;
+    Spell* spell;
 };
 
 struct SpellPeriodicAuraLogInfo
@@ -764,7 +781,7 @@ enum SpellAuraProcResult
     SPELL_AURA_PROC_CANT_TRIGGER    = 2,                    // aura can't trigger - skip charges taking, move to next aura if exists
 };
 
-// Unit* victim, uint32 procAttacker, uint32 procVictim, uint32 procExtra, uint32 amount, WeaponAttackType attType, SpellEntry const* procSpell, bool dontTriggerSpecial
+// Unit* victim, uint32 procAttacker, uint32 procVictim, uint32 procExtra, uint32 amount, WeaponAttackType attType, SpellEntry const* spellInfo, bool dontTriggerSpecial
 
 // External struct for passing on data
 struct ProcSystemArguments
@@ -777,7 +794,7 @@ struct ProcSystemArguments
     uint32 procExtra;
 
     uint32 damage; // contains full heal or full damage
-    SpellEntry const* procSpell;
+    SpellEntry const* spellInfo;
     WeaponAttackType attType;
 
     Spell* spell;
@@ -787,8 +804,8 @@ struct ProcSystemArguments
     bool isHeal;
 
     explicit ProcSystemArguments(Unit* attacker, Unit* victim, uint32 procFlagsAttacker, uint32 procFlagsVictim, uint32 procExtra, uint32 amount, WeaponAttackType attType = BASE_ATTACK,
-        SpellEntry const* procSpell = nullptr, Spell* spell = nullptr, uint32 healthGain = 0, bool isHeal = false) : attacker(attacker), victim(victim), procFlagsAttacker(procFlagsAttacker), procFlagsVictim(procFlagsVictim), procExtra(procExtra), damage(amount),
-        procSpell(procSpell), attType(attType), spell(spell), healthGain(healthGain), isHeal(isHeal)
+        SpellEntry const* spellInfo = nullptr, Spell* spell = nullptr, uint32 healthGain = 0, bool isHeal = false) : attacker(attacker), victim(victim), procFlagsAttacker(procFlagsAttacker), procFlagsVictim(procFlagsVictim), procExtra(procExtra), damage(amount),
+        spellInfo(spellInfo), attType(attType), spell(spell), healthGain(healthGain), isHeal(isHeal)
     {
     }
 };
@@ -796,19 +813,23 @@ struct ProcSystemArguments
 // Internal struct for passing data to execution
 struct ProcExecutionData
 {
-    bool isVictim;
-
+    // these are same for proc on attackers auras and victims auras
     Unit* attacker;
     Unit* victim;
+
+    // these change based on isVictim
+    bool isVictim;
+    Unit* source;
+    Unit* target;
 
     uint32 procFlags;
     uint32 procExtra;
 
     WeaponAttackType attType;
     uint32 damage; // contains full heal or full damage
-    SpellEntry const* procSpell;
+    SpellEntry const* spellInfo; // filled always even on aura tick
 
-    Spell* spell;
+    Spell* spell; // only filled on direct spell execution
 
     // Healing specific information
     uint32 healthGain;
@@ -916,6 +937,8 @@ struct CharmInfo
         void ResetCharmState();
         uint32 GetPetNumber() const { return m_petnumber; }
         void SetPetNumber(uint32 petnumber, bool statwindow);
+        uint32 GetPetLastAttackCommandTime() const { return m_petLastAttackCommandTime; }
+        void SetPetLastAttackCommandTime(uint32 time) { m_petLastAttackCommandTime = time; }
 
         void SetCommandState(CommandStates st);
         CommandStates GetCommandState() { return m_CommandState; }
@@ -925,7 +948,7 @@ struct CharmInfo
         void InitCharmCreateSpells();
         void InitPetActionBar();
         void InitEmptyActionBar();
-        void ProcessUnattackableTargets();
+        void ProcessUnattackableTargets(CombatData* combatData);
 
         // return true if successful
         bool AddSpellToActionBar(uint32 spellId, ActiveStates newstate = ACT_DECIDE, uint8 forceSlot = 255);
@@ -985,6 +1008,7 @@ struct CharmInfo
         CharmSpellEntry     m_charmspells[CREATURE_MAX_SPELLS];
         CommandStates       m_CommandState;
         uint32              m_petnumber;
+        uint32              m_petLastAttackCommandTime;
         uint32              m_opener;
         uint32              m_openerMinRange;
         uint32              m_openerMaxRange;
@@ -1042,6 +1066,58 @@ enum PowerDefaults
     POWER_FOCUS_DEFAULT             = 100,
     POWER_ENERGY_DEFAULT            = 100,
     POWER_HAPPINESS_DEFAULT         = 1000000,
+};
+
+// Selection method used by SelectAttackingTarget
+enum AttackingTarget
+{
+    ATTACKING_TARGET_RANDOM = 0,                            // Just selects a random target
+    ATTACKING_TARGET_TOPAGGRO,                              // Selects targes from top aggro to bottom
+    ATTACKING_TARGET_BOTTOMAGGRO,                           // Selects targets from bottom aggro to top
+    ATTACKING_TARGET_NEAREST_BY,                            // Selects the nearest by target
+    ATTACKING_TARGET_FARTHEST_AWAY,                         // Selects the farthest away target
+    ATTACKING_TARGET_ALL_SUITABLE,
+};
+
+enum SelectFlags
+{
+    SELECT_FLAG_IN_LOS              = 0x0001,               // Default Selection Requirement for Spell-targets
+    SELECT_FLAG_PLAYER              = 0x0002,
+    SELECT_FLAG_POWER_MANA          = 0x0004,               // For Energy based spells, like manaburn
+    SELECT_FLAG_POWER_RAGE          = 0x0008,
+    SELECT_FLAG_POWER_ENERGY        = 0x0010,
+    SELECT_FLAG_IN_MELEE_RANGE      = 0x0040,
+    SELECT_FLAG_NOT_IN_MELEE_RANGE  = 0x0080,
+    SELECT_FLAG_HAS_AURA            = 0x0100,
+    SELECT_FLAG_NOT_AURA            = 0x0200,
+    SELECT_FLAG_RANGE_RANGE         = 0x0400,               // For direct targeted abilities like charge or frostbolt but need custom data
+    SELECT_FLAG_RANGE_AOE_RANGE     = 0x0800,               // For AOE targeted abilities like frost nova but need custom data
+    SELECT_FLAG_POWER_NOT_MANA      = 0x1000,               // Used in some dungeon encounters
+    SELECT_FLAG_USE_EFFECT_RADIUS   = 0x2000,               // For AOE targeted abilities which have correct data in effect index 0
+    SELECT_FLAG_SKIP_TANK           = 0x4000,               // Not GetVictim - tank is not always top threat
+    SELECT_FLAG_CASTING             = 0x8000,               // Selects only targets that are casting
+    SELECT_FLAG_SKIP_CUSTOM         =0x10000,               // skips custom target
+    SELECT_FLAG_NOT_IMMUNE          =0x20000,
+};
+
+struct SelectAttackingTargetParams
+{
+    union
+    {
+        struct
+        {
+            uint32 minRange;
+            uint32 maxRange;
+        } range;
+        struct
+        {
+            uint64 guid;
+        } skip;
+        struct
+        {
+            uint32 params[2];
+        } raw;
+    };
 };
 
 struct SpellProcEventEntry;                                 // used only privately
@@ -1165,7 +1241,7 @@ class Unit : public WorldObject
          */
         bool CanUseEquippedWeapon(WeaponAttackType attackType) const
         {
-            if (IsInFeralForm())
+            if (IsNoWeaponShapeShift())
                 return false;
 
             switch (attackType)
@@ -1269,6 +1345,9 @@ class Unit : public WorldObject
         Unit* SelectRandomUnfriendlyTarget(Unit* except = nullptr, float radius = ATTACK_DISTANCE) const;
         Unit* SelectRandomFriendlyTarget(Unit* except = nullptr, float radius = ATTACK_DISTANCE) const;
         bool HasDamageInterruptibleStunAura() const;
+        bool HasBreakableByDamageCrowdControlAura(Unit* excludeCasterChannel = nullptr, uint32 excludeAuraApplyMSTimeCutoff = 0) const;
+        bool HasBreakableByDamageAuraType(AuraType type, uint32 excludeAura, uint32 excludeAuraApplyMSTimeCutoff) const;
+        bool HasAuraPetShouldAvoidBreaking(Unit* excludeCasterChannel = nullptr, uint32 excludeAuraApplyMSTimeCutoff = 0) const;
         void SendMeleeAttackStop(Unit* victim) const;
         void SendMeleeAttackStart(Unit* pVictim) const;
 
@@ -1389,6 +1468,7 @@ class Unit : public WorldObject
         void SetImmuneToNPC(bool state);
         bool IsImmuneToPlayer() const { return HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER); }
         void SetImmuneToPlayer(bool state);
+        bool IsPlayerControlled() const { return HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED); }
 
         bool IsPvP() const { return HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PVP); }
         void SetPvP(bool state);
@@ -1423,11 +1503,11 @@ class Unit : public WorldObject
 
         void Suicide();
         static void DealDamageMods(Unit* dealer, Unit* victim, uint32& damage, uint32* absorb, DamageEffectType damagetype, SpellEntry const* spellProto = nullptr);
-        static uint32 DealDamage(Unit* dealer, Unit* victim, uint32 damage, CleanDamage const* cleanDamage, DamageEffectType damagetype, SpellSchoolMask damageSchoolMask, SpellEntry const* spellProto, bool durabilityLoss);
+        static uint32 DealDamage(Unit* dealer, Unit* victim, uint32 damage, CleanDamage const* cleanDamage, DamageEffectType damagetype, SpellSchoolMask damageSchoolMask, SpellEntry const* spellProto, bool durabilityLoss, Spell* spell = nullptr);
         int32 DealHeal(Unit* pVictim, uint32 addhealth, SpellEntry const* spellProto, bool critical = false);
         static void Kill(Unit* killer, Unit* victim, DamageEffectType damagetype, SpellEntry const* spellProto, bool durabilityLoss, bool duel_hasEnded);
         static void HandleDamageDealt(Unit* dealer, Unit* victim, uint32& damage, CleanDamage const* cleanDamage, DamageEffectType damagetype, SpellSchoolMask damageSchoolMask, SpellEntry const* spellProto, bool duel_hasEnded);
-        void InterruptOrDelaySpell(Unit* pVictim, DamageEffectType damagetype);
+        void InterruptOrDelaySpell(Unit* pVictim, DamageEffectType damagetype, SpellEntry const* spellProto);
 
         void PetOwnerKilledUnit(Unit* pVictim);
 
@@ -1446,7 +1526,7 @@ class Unit : public WorldObject
         bool IsAllowedDamageInArea(Unit* pVictim) const;
 
         void CalculateSpellDamage(SpellNonMeleeDamage* spellDamageInfo, int32 damage, SpellEntry const* spellInfo, WeaponAttackType attackType = BASE_ATTACK);
-        void DealSpellDamage(SpellNonMeleeDamage* damageInfo, bool durabilityLoss);
+        void DealSpellDamage(SpellNonMeleeDamage* damageInfo, bool durabilityLoss, bool resetLeash);
 
         uint32 GetResilienceRatingDamageReduction(uint32 damage, SpellDmgClass dmgClass, bool periodic = false, Powers pwrType = POWER_HEALTH) const;
 
@@ -1601,7 +1681,7 @@ class Unit : public WorldObject
         void EngageInCombatWith(Unit* enemy);
         void EngageInCombatWithAggressor(Unit* aggressor);
         void ClearInCombat();
-        void HandleExitCombat(bool pvpCombat = false);
+        void HandleExitCombat(bool customLeash, bool pvpCombat = false);
 
         SpellAuraHolderBounds GetSpellAuraHolderBounds(uint32 spell_id)
         {
@@ -1687,10 +1767,10 @@ class Unit : public WorldObject
         void SendEnergizeSpellLog(Unit* pVictim, uint32 SpellID, uint32 Damage, Powers powertype) const;
         void SendEnvironmentalDamageLog(uint8 type, uint32 damage, uint32 absorb, int32 resist) const;
         void SendHealSpellLog(Unit* pVictim, uint32 SpellID, uint32 Damage, bool critical = false);
-        void SendSpellNonMeleeDamageLog(SpellNonMeleeDamage* log) const;
-        void SendSpellNonMeleeDamageLog(Unit* target, uint32 spellID, uint32 damage, SpellSchoolMask damageSchoolMask, uint32 absorbedDamage, int32 resist, bool isPeriodic, uint32 blocked, bool criticalHit = false, bool split = false);
+        static void SendSpellNonMeleeDamageLog(SpellNonMeleeDamage* log);
+        static void SendSpellNonMeleeDamageLog(WorldObject* attacker, Unit* target, uint32 spellID, uint32 damage, SpellSchoolMask damageSchoolMask, uint32 absorbedDamage, int32 resist, bool isPeriodic, uint32 blocked, bool criticalHit = false, bool split = false);
         void SendPeriodicAuraLog(SpellPeriodicAuraLogInfo* pInfo) const;
-        void SendSpellMiss(Unit* target, uint32 spellID, SpellMissInfo missInfo) const;
+        static void SendSpellMiss(WorldObject* caster, Unit* target, uint32 spellID, SpellMissInfo missInfo);
         void SendSpellDamageResist(Unit* target, uint32 spellId) const;
         static void SendSpellOrDamageImmune(ObjectGuid casterGuid, Unit* target, uint32 spellId);
 
@@ -1698,6 +1778,11 @@ class Unit : public WorldObject
 
         void CasterHitTargetWithSpell(Unit* realCaster, Unit* target, SpellEntry const* spellInfo, bool triggered, bool success = true);
         bool CanInitiateAttack() const;
+
+        Unit* SelectAttackingTarget(AttackingTarget target, uint32 position, uint32 spellId, uint32 selectFlags = 0, SelectAttackingTargetParams params = SelectAttackingTargetParams()) const;
+        Unit* SelectAttackingTarget(AttackingTarget target, uint32 position, SpellEntry const* spellInfo = nullptr, uint32 selectFlags = 0, SelectAttackingTargetParams params = SelectAttackingTargetParams()) const;
+        void SelectAttackingTargets(std::vector<Unit*>& selectedTargets, AttackingTarget target, uint32 position, uint32 spellId, uint32 selectFlags = 0, SelectAttackingTargetParams params = SelectAttackingTargetParams()) const;
+        void SelectAttackingTargets(std::vector<Unit*>& selectedTargets, AttackingTarget target, uint32 position, SpellEntry const* spellInfo = nullptr, uint32 selectFlags = 0, SelectAttackingTargetParams params = SelectAttackingTargetParams()) const;
 
         void NearTeleportTo(float x, float y, float z, float orientation, bool casting = false, bool transportLeave = false);
         // do not use - kept only for cinematics
@@ -1722,12 +1807,12 @@ class Unit : public WorldObject
         bool IsDebuggingMovement() const { return m_debuggingMovement; }
         void SetDebuggingMovement(bool state) { m_debuggingMovement = state; }
 
-        virtual void SetLevitate(bool /*enabled*/) {}
-        virtual void SetSwim(bool /*enabled*/) {}
-        virtual void SetCanFly(bool /*enabled*/) {}
-        virtual void SetFeatherFall(bool /*enabled*/) {}
-        virtual void SetHover(bool /*enabled*/) {}
-        virtual void SetWaterWalk(bool /*enabled*/) {}
+        void SetLevitate(bool enabled);
+        void SetSwim(bool enabled);
+        void SetCanFly(bool enabled);
+        void SetFeatherFall(bool enabled);
+        void SetHover(bool enabled);
+        void SetWaterWalk(bool enabled);
 
         void SetInFront(Unit const* target);
         void SetFacingTo(float ori);
@@ -1802,7 +1887,7 @@ class Unit : public WorldObject
 
         void AddGuardian(Pet* pet);
         void RemoveGuardian(Pet* pet);
-        void RemoveGuardians();
+        void RemoveGuardians(bool force = true); // do not remove guardians in combat unless forced
         Pet* FindGuardianWithEntry(uint32 entry);
         uint32 CountGuardiansWithEntry(uint32 entry);
 
@@ -1846,7 +1931,7 @@ class Unit : public WorldObject
         void RemoveAurasAtMechanicImmunity(uint32 mechMask, uint32 exceptSpellId, bool non_positive = false);
         void RemoveSpellsCausingAura(AuraType auraType);
         void RemoveSpellsCausingAura(AuraType auraType, SpellAuraHolder* except);
-        void RemoveSpellsCausingAura(AuraType auraType, SpellAuraHolder* except, bool onlyNegative);
+        void RemoveSpellsCausingAura(AuraType auraType, SpellAuraHolder* except, bool onlyMechanic);
         void RemoveSpellsCausingAura(AuraType auraType, ObjectGuid casterGuid);
         void RemoveRankAurasDueToSpell(uint32 spellId);
         bool RemoveNoStackAurasDueToAuraHolder(SpellAuraHolder* holder);
@@ -1920,11 +2005,7 @@ class Unit : public WorldObject
         void  SetShapeshiftForm(ShapeshiftForm form) { SetByteValue(UNIT_FIELD_BYTES_2, 3, form); }
 
         bool IsShapeShifted() const;
-        bool IsInFeralForm() const
-        {
-            ShapeshiftForm form = GetShapeshiftForm();
-            return form == FORM_CAT || form == FORM_BEAR || form == FORM_DIREBEAR;
-        }
+        bool IsNoWeaponShapeShift() const;
 
         bool IsInDisallowedMountForm() const
         {
@@ -2296,7 +2377,10 @@ class Unit : public WorldObject
         void SetSupportThreatOnly(bool state) { m_supportThreatOnly = state; }
         bool IsSupportThreatOnly() { return m_supportThreatOnly; }
 
-        float GetAttackDistance(Unit const* pl) const;
+        void DisableThreatPropagationToOwner() { m_ownerThreatPropagation = false; }
+        bool IsPropagatingThreatToOwner() { return m_ownerThreatPropagation; } // TBC+ - Eye of Kilrogg
+
+        float GetAttackDistance(Unit const* target) const;
         virtual uint32 GetDetectionRange() const { return 20.f; }
 
         virtual UnitAI* AI() { return nullptr; }
@@ -2343,7 +2427,10 @@ class Unit : public WorldObject
         void OverrideMountDisplayId(uint32 newDisplayId);
 
         void UpdateSplinePosition(bool relocateOnly = false);
+
+        virtual bool CanCallForAssistance() const { return true; }
     protected:
+        bool MeetsSelectAttackingRequirement(Unit* target, SpellEntry const* spellInfo, uint32 selectFlags, SelectAttackingTargetParams params) const;
 
         struct WeaponDamageInfo
         {
@@ -2513,6 +2600,7 @@ class Unit : public WorldObject
         bool m_alwaysHit;
         bool m_noThreat;
         bool m_supportThreatOnly;
+        bool m_ownerThreatPropagation;
         bool m_ignoreRangedTargets;                         // Ignores ranged targets when picking someone to attack
         bool m_debuggingMovement;
 

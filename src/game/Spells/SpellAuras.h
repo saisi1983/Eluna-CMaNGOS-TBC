@@ -168,7 +168,8 @@ class SpellAuraHolder
 
         bool DropAuraCharge();                               // return true if last charge dropped
 
-        time_t GetAuraApplyTime() const { return m_applyTime; }
+        uint32 GetAuraApplyTime() const { return m_applyTime; }
+        uint32 GetAuraApplyMSTime() const { return m_applyMSTime; } // milliseconds time
 
         void SetRemoveMode(AuraRemoveMode mode) { m_removeMode = mode; }
         void SetLoadedState(ObjectGuid const& casterGUID, ObjectGuid const& itemGUID, uint32 stackAmount, uint32 charges, int32 maxduration, int32 duration)
@@ -214,6 +215,7 @@ class SpellAuraHolder
         ObjectGuid m_casterGuid;
         ObjectGuid m_castItemGuid;                          // it is NOT safe to keep a pointer to the item because it may get deleted
         time_t m_applyTime;
+        uint32 m_applyMSTime;
         SpellEntry const* m_triggeredBy;                    // Spell responsible for this holder
         SpellAuraHolderState m_spellAuraHolderState;        // State used to be sure init part is finished (ex there is still some aura to add or effect to process)
 
@@ -420,6 +422,7 @@ class Aura
         void HandlePrayerOfMending(bool apply, bool Real);
         void HandleAuraDetaunt(bool Apply, bool Real);
         void HandleOverrideClassScript(bool apply, bool real);
+        void HandleAuraPhase(bool apply, bool real);
 
         virtual ~Aura();
 
@@ -506,6 +509,7 @@ class Aura
         // Scripting system
         AuraScript* GetAuraScript() const { return GetHolder()->GetAuraScript(); }
         // hooks
+        void OnAuraInit();
         int32 OnAuraValueCalculate(Unit* caster, int32 currentValue);
         void OnDamageCalculate(int32& advertisedBenefit, float& totalMod);
         void OnApply(bool apply);

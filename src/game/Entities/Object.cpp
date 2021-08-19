@@ -1123,7 +1123,7 @@ void Object::ForceValuesUpdateAtIndex(uint16 index)
 WorldObject::WorldObject() :
     m_transportInfo(nullptr), m_isOnEventNotified(false),
     m_visibilityData(this), m_currMap(nullptr),
-    m_mapId(0), m_InstanceId(0),
+    m_mapId(0), m_InstanceId(0), m_phaseMask(1),
     m_isActiveObject(false), m_debugFlags(0), m_transport(nullptr)
 {
 }
@@ -1133,9 +1133,10 @@ void WorldObject::CleanupsBeforeDelete()
     RemoveFromWorld();
 }
 
-void WorldObject::_Create(uint32 guidlow, HighGuid guidhigh)
+void WorldObject::_Create(uint32 guidlow, HighGuid guidhigh, uint32 phaseMask)
 {
     Object::_Create(guidlow, 0, guidhigh);
+    m_phaseMask = phaseMask;
 }
 
 void WorldObject::Relocate(float x, float y, float z, float orientation)
@@ -1524,6 +1525,19 @@ bool WorldObject::isInBack(WorldObject const* target, float distance, float arc 
     return target->GetDistance(GetPositionX(), GetPositionY(), GetPositionZ(), DIST_CALC_COMBAT_REACH) <= distance && !HasInArc(target, 2 * M_PI_F - arc);
 }
 
+Position WorldObject::GetFirstRandomAngleCollisionPosition(float dist, float angle)
+{
+    Position pos;
+    for (uint32 i = 0; i < 10; ++i)
+    {
+        GetFirstCollisionPosition(pos, dist, angle);
+        if (GetPosition().GetDistance(pos) > dist * 0.8f) // if at least 80% distance, good enough
+            break;
+        angle += (M_PI_F / 5); // else try slightly different angle
+    }
+    return pos;
+}
+
 void WorldObject::GetRandomPoint(float x, float y, float z, float distance, float& rand_x, float& rand_y, float& rand_z, float minDist /*=0.0f*/, float const* ori /*=nullptr*/) const
 {
     if (distance == 0)
@@ -1585,7 +1599,14 @@ void WorldObject::MovePositionToFirstCollision(Position& pos, float dist, float 
     if (IsUnit())
     {
         PathFinder path(static_cast<Unit*>(this));
-        path.calculate(destX, destY, destZ + halfHeight, false, true);
+        Vector3 src(pos.x, pos.y, pos.z);
+        Vector3 dest(destX, destY, destZ + halfHeight);
+        if (transport) // need to use offsets for PF check
+        {
+            transport->CalculatePassengerOffset(src.x, src.y, src.z);
+            transport->CalculatePassengerOffset(dest.x, dest.y, dest.z);
+        }
+        path.calculate(src, dest, false, true);
         if (path.getPathType())
         {
             G3D::Vector3 result = path.getPath().back();
@@ -2026,7 +2047,8 @@ Creature* WorldObject::SummonCreature(uint32 id, float x, float y, float z, floa
 GameObject* WorldObject::SpawnGameObject(uint32 dbGuid, Map* map)
 {
     GameObjectData const* data = sObjectMgr.GetGOData(dbGuid);
-    MANGOS_ASSERT(data);
+    if (!data)
+        return nullptr;
 
     if (data->spawnMask && !map->CanSpawn(TYPEID_GAMEOBJECT, dbGuid))
         return nullptr;
@@ -2269,6 +2291,11 @@ void WorldObject::GetNearPointAt(const float posX, const float posY, const float
         searcher->UpdateAllowedPositionZ(x, y, z, GetMap());// update to LOS height if available
     else if (!isInWater)
         UpdateGroundPositionZ(x, y, z);
+}
+
+void WorldObject::SetPhaseMask(uint32 newPhaseMask)
+{
+    m_phaseMask = newPhaseMask;
 }
 
 void WorldObject::PlayDistanceSound(uint32 sound_id, PlayPacketParameters parameters /*= PlayPacketParameters(PLAY_SET)*/) const
@@ -2885,9 +2912,11 @@ int32 WorldObject::CalculateSpellEffectValue(Unit const* target, SpellEntry cons
             {
                 case SPELL_AURA_PERIODIC_DAMAGE:
                 case SPELL_AURA_PERIODIC_LEECH:
+                case SPELL_AURA_SCHOOL_ABSORB:
                     //   SPELL_AURA_PERIODIC_DAMAGE_PERCENT: excluded, abs values only
                 case SPELL_AURA_POWER_BURN_MANA:
                 case SPELL_AURA_PERIODIC_TRIGGER_SPELL_WITH_VALUE:
+                case SPELL_AURA_PERIODIC_MANA_LEECH:
                     damage = true;
             }
         }
@@ -2945,7 +2974,17 @@ float Position::GetDistance(Position const& other) const
     return distsq;
 }
 
+std::string Position::to_string() const
+{
+    return "X: " + std::to_string(x) + " Y: " + std::to_string(y) + " Z: " + std::to_string(z) + " O: " + std::to_string(o);
+}
+
 bool operator!=(const Position& left, const Position& right)
 {
     return left.x != right.x || left.y != right.y || left.z != right.z || left.o != right.o;
+}
+
+bool WorldObject::IsUsingNewSpawningSystem() const
+{
+    return GetDbGuid() && GetDbGuid() != GetGUIDLow();
 }

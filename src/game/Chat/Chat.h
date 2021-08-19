@@ -300,7 +300,13 @@ class ChatHandler
 
         bool HandleDebugFlyCommand(char* args);
 
-        bool HandleDebugPacketHistory(char* args);
+        bool HandleDebugOutPacketHistory(char* args);
+        bool HandleDebugIncPacketHistory(char* args);
+
+        bool HandleDebugTransports(char* args);
+
+        bool HandleDebugSpawnsList(char* args);
+        bool HandleDebugRespawnDynguid(char* args);
 
         bool HandleSD2HelpCommand(char* args);
         bool HandleSD2ScriptCommand(char* args);
@@ -467,6 +473,7 @@ class ChatHandler
         bool HandleNpcWhisperCommand(char* args);
         bool HandleNpcYellCommand(char* args);
         bool HandleNpcTempSpawn(char* args);
+        bool HandleNpcEvade(char* args);
 
         // TODO: NpcCommands that needs to be fixed :
         bool HandleNpcAddWeaponCommand(char* args);
@@ -580,6 +587,7 @@ class ChatHandler
         bool HandleReloadTaxiShortcuts(char* args);
         bool HandleReloadSpellPetAurasCommand(char* args);
         bool HandleReloadExpectedSpamRecords(char* args);
+        bool HandleReloadCreatureCooldownsCommand(char* args);
 
         bool HandleResetAllCommand(char* args);
         bool HandleResetHonorCommand(char* args);
@@ -754,6 +762,8 @@ class ChatHandler
         bool HandleSunsReachReclamationPhaseCommand(char* args);
         bool HandleSunsReachReclamationSubPhaseCommand(char* args);
         bool HandleSunsReachReclamationCounterCommand(char* args);
+        bool HandleSunwellGateCommand(char* args);
+        bool HandleSunwellGateCounterCommand(char* args);
         bool HandleExpansionRelease(char* args);
 
         // Battleground

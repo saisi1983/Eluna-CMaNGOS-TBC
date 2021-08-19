@@ -143,12 +143,31 @@ inline bool IsAuraApplyEffects(SpellEntry const* entry, SpellEffectIndexMask mas
 
 inline bool IsSpellAppliesAura(SpellEntry const* spellInfo, uint32 effectMask = ((1 << EFFECT_INDEX_0) | (1 << EFFECT_INDEX_1) | (1 << EFFECT_INDEX_2)))
 {
-    for (int i = 0; i < MAX_EFFECT_INDEX; ++i)
+    for (uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
         if (effectMask & (1 << i))
             if (IsAuraApplyEffect(spellInfo, SpellEffectIndex(i)))
                 return true;
 
     return false;
+}
+
+inline bool IsSpellWithNonAuraEffect(SpellEntry const* spellInfo)
+{
+    for (uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
+        if (!IsAuraApplyEffect(spellInfo, SpellEffectIndex(i)))
+            return true;
+
+    return false;
+}
+
+inline uint32 GetAuraEffectMask(SpellEntry const* spellInfo)
+{
+    uint32 mask = 0;
+    for (uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
+        if (IsAuraApplyEffect(spellInfo, SpellEffectIndex(i)))
+            mask |= (1 << i);
+
+    return mask;
 }
 
 inline bool IsEffectHandledImmediatelySpellLaunch(SpellEntry const* spellInfo, SpellEffectIndex effecIdx)
@@ -227,9 +246,9 @@ inline bool IsCharmAura(SpellEntry const* spellInfo, int32 effIdx) // TODO: exte
         case SPELL_AURA_MOD_CHARM:
         case SPELL_AURA_AOE_CHARM:
         case SPELL_AURA_MOD_POSSESS:
-            return false;
-        default:
             return true;
+        default:
+            return false;
     }
 }
 
@@ -396,6 +415,16 @@ inline bool IsPossessCharmType(uint32 spellId)
     }
 }
 
+inline bool IsSpellNeedSendOnObjectUpdate(uint32 spellId)
+{
+    switch (spellId)
+    {
+        case 39123:
+            return true;
+        default: return false;
+    }
+}
+
 inline bool IsSpellRemoveAllMovementAndControlLossEffects(SpellEntry const* spellProto)
 {
     return spellProto->EffectApplyAuraName[EFFECT_INDEX_0] == SPELL_AURA_MECHANIC_IMMUNITY &&
@@ -403,6 +432,66 @@ inline bool IsSpellRemoveAllMovementAndControlLossEffects(SpellEntry const* spel
            spellProto->EffectApplyAuraName[EFFECT_INDEX_1] == 0 &&
            spellProto->EffectApplyAuraName[EFFECT_INDEX_2] == 0 &&
            spellProto->HasAttribute(SPELL_ATTR_EX_DISPEL_AURAS_ON_IMMUNITY);
+}
+
+inline uint32 GetAllowedMechanicMask(SpellEntry const* spellProto)
+{
+    uint32 mask = 0;
+    for (uint8 i = 0; i < MAX_EFFECT_INDEX; ++i)
+    {
+        if (!spellProto->Effect[i])
+            continue;
+
+        if (spellProto->EffectApplyAuraName[i] == SPELL_AURA_MECHANIC_IMMUNITY)
+            mask |= 1 << uint32(spellProto->EffectMiscValue[i] - 1);
+        else if (spellProto->EffectApplyAuraName[i] == SPELL_AURA_MECHANIC_IMMUNITY_MASK)
+            mask |= uint32(spellProto->EffectMiscValue[i]);
+    }
+    return mask;
+}
+
+// based on client Spell_C::CancelsAuraEffect
+inline bool SpellCancelsAuraEffect(SpellEntry const* spellInfo, SpellEntry const* auraSpellInfo, uint8 auraEffIndex)
+{
+    if (!spellInfo->HasAttribute(SPELL_ATTR_EX_DISPEL_AURAS_ON_IMMUNITY))
+        return false;
+
+    if (auraSpellInfo->HasAttribute(SPELL_ATTR_UNAFFECTED_BY_INVULNERABILITY))
+        return false;
+
+    for (uint8 i = 0; i < MAX_SPELL_EFFECTS; ++i)
+    {
+        if (spellInfo->Effect[i] != SPELL_EFFECT_APPLY_AURA)
+            continue;
+
+        uint32 const miscValue = static_cast<uint32>(spellInfo->EffectMiscValue[i]);
+        switch (spellInfo->EffectApplyAuraName[i])
+        {
+            case SPELL_AURA_STATE_IMMUNITY:
+                if (miscValue != auraSpellInfo->EffectApplyAuraName[auraEffIndex])
+                    continue;
+                break;
+            case SPELL_AURA_SCHOOL_IMMUNITY:
+                if (auraSpellInfo->HasAttribute(SPELL_ATTR_EX2_UNAFFECTED_BY_AURA_SCHOOL_IMMUNE) || !(auraSpellInfo->SchoolMask & miscValue))
+                    continue;
+                break;
+            case SPELL_AURA_DISPEL_IMMUNITY:
+                if (miscValue != auraSpellInfo->Dispel)
+                    continue;
+                break;
+            case SPELL_AURA_MECHANIC_IMMUNITY:
+                if (miscValue != auraSpellInfo->Mechanic)
+                    if (miscValue != auraSpellInfo->EffectMechanic[auraEffIndex])
+                        continue;
+                break;
+            default:
+                continue;
+        }
+
+        return true;
+    }
+
+    return false;
 }
 
 inline bool IsDeathOnlySpell(SpellEntry const* spellInfo)
@@ -448,6 +537,9 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
     if (IsSpellHaveAura(spellInfo, SPELL_AURA_MOD_POSSESS))
         return false;
 
+    if (spellInfo->HasAttribute(SPELL_ATTR_SS_IGNORE_EVADE))
+        return false;
+
     switch (spellInfo->Id)
     {
         case 588:           // Inner Fire (Rank 1)
@@ -460,6 +552,8 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 5111:          // Living Flame Passive
         case 5301:          // Defensive State (DND)
         case 5680:          // Torch Burn
+        case 6488:          // Sarilus's Elementals Passive
+        case 6498:          // Feed Sarilus Passive
         case 6718:          // Phasing Stealth
         case 6752:          // Weak Poison Proc
         case 6947:          // Curse of the Bleakheart Proc
@@ -483,6 +577,7 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 10095:         // Hate to Zero (Hate to Zero)
         case 11838:         // Hate to Zero (Hate to Zero)
         case 11919:         // Poison Proc
+        case 11959:         // Poison Proc
         case 11964:         // Fevered Fatigue
         case 11966:         // Fire Shield
         case 11984:         // Immolate
@@ -539,6 +634,7 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 22856:         // Ice Lock (Guard Slip'kik ice trap in Dire Maul)
         case 25592:         // Hate to Zero (Hate to Zero)
         case 26341:         // Saurfang's Rage
+        case 27578:         // Battle Shout
         case 27987:         // Unholy Aura
         case 28126:         // Spirit Particles (purple)
         case 28902:         // Bloodlust
@@ -552,11 +648,13 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 31792:         // Bear Form (Shapeshift)
         case 32007:         // Mo'arg Engineer Transform Visual
         case 32064:         // Battle Shout
+        case 32732:         // Flay
         case 32900:         // Bone Shards Proc
         case 32912:         // Windfury
         case 32939:         // Phase Burst
         case 32942:         // Phasing Invisibility
         case 33460:         // Inhibit Magic
+        case 33483:         // Mana Tap
         case 33900:         // Shroud of Death
         case 33908:         // Burning Spikes
         case 34343:         // Thorns
@@ -598,10 +696,47 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 40899:         // Felfire Proc
         case 41634:         // Invisibility and Stealth Detection
         case 42459:         // Dual Wield (Passive)
+        case 44118:         // Fists of Arcane Fury
+        case 44480:         // Seal of Wrath
+        case 44505:         // Drink Fel Infusion
+        case 44520:         // Fel Armor (Rank 2)
         case 44537:         // Fel Lightning
         case 44604:         // Enchantment of Spell Haste
         case 44855:         // Out of Phase
+        case 44962:         // Archer - BE Male Transform Tier 1
+        case 44918:         // Archer - BE Male Transform Tier 2
+        case 44919:         // Archer - BE Male Transform Tier 3
+        case 44920:         // Archer - BE Male Transform Tier 4
+        case 44921:         // Archer - BE Female Transform Tier 1
+        case 44922:         // Archer - BE Female Transform Tier 2
+        case 44923:         // Archer - BE Female Transform Tier 3
+        case 44924:         // Archer - BE Female Transform Tier 4
+        case 44925:         // Archer - Draenei Male Transform Tier 1
+        case 44926:         // Archer - Draenei Male Transform Tier 2
+        case 44927:         // Archer - Draenei Male Transform Tier 3
+        case 44928:         // Archer - Draenei Male Transform Tier 4
+        case 44929:         // Archer - Draenei Female Transform Tier 1
+        case 44930:         // Archer - Draenei Female Transform Tier 2
+        case 44931:         // Archer - Draenei Female Transform Tier 3
+        case 44932:         // Archer - Draenei Female Transform Tier 4
+        case 44977:         // Fel Armor (Rank 2)
         case 45033:         // Abyssal Transformation
+        case 45155:         // Warrior - BE Female Transform Tier 1
+        case 45156:         // Warrior - BE Female Transform Tier 2
+        case 45157:         // Warrior - BE Female Transform Tier 3
+        case 45158:         // Warrior - BE Female Transform Tier 4
+        case 45159:         // Warrior - BE Male Transform Tier 1
+        case 45160:         // Warrior - BE Male Transform Tier 2
+        case 45161:         // Warrior - BE Male Transform Tier 3
+        case 45162:         // Warrior - BE Male Transform Tier 4
+        case 45163:         // Warrior - Draenei Female Transform Tier 1
+        case 45164:         // Warrior - Draenei Female Transform Tier 2
+        case 45165:         // Warrior - Draenei Female Transform Tier 3
+        case 45166:         // Warrior - Draenei Female Transform Tier 4
+        case 45167:         // Warrior - Draenei Male Transform Tier 1
+        case 45168:         // Warrior - Draenei Male Transform Tier 2
+        case 45169:         // Warrior - Draenei Male Transform Tier 3
+        case 45170:         // Warrior - Draenei Male Transform Tier 4
         case 45187:         // Dawnblade Attack
         case 45822:         // Iceblood Warmaster
         case 45823:         // Tower Point Warmaster
@@ -611,10 +746,14 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 45829:         // Dun Baldar South Marshal
         case 45830:         // Stonehearth Marshal
         case 45831:         // Icewing Marshal
+        case 46030:         // Seal of Wrath
         case 46048:         // Fel Lightning
         case 46277:         // Bring Pain
         case 46308:         // Burning Winds
+        case 46565:         // Holyform
+        case 46744:         // Chilling Touch
         case 47287:         // Burning Destruction
+        case 47399:         // Frenzy
             return false;
         default:
             return true;
@@ -1067,10 +1206,14 @@ inline bool IsUnitTargetTarget(uint32 target)
 
 inline bool HasMissingTargetFromClient(SpellEntry const* spellInfo)
 {
+    // client only checks effect 0 target A
     if (IsUnitTargetTarget(spellInfo->EffectImplicitTargetA[EFFECT_INDEX_0]))
         return false;
 
     if (IsUnitTargetTarget(spellInfo->EffectImplicitTargetA[EFFECT_INDEX_1]) || IsUnitTargetTarget(spellInfo->EffectImplicitTargetA[EFFECT_INDEX_2]))
+        return true;
+
+    if (IsUnitTargetTarget(spellInfo->EffectImplicitTargetB[EFFECT_INDEX_0]) || IsUnitTargetTarget(spellInfo->EffectImplicitTargetB[EFFECT_INDEX_1]) || IsUnitTargetTarget(spellInfo->EffectImplicitTargetB[EFFECT_INDEX_2]))
         return true;
 
     return false;
@@ -1079,7 +1222,7 @@ inline bool HasMissingTargetFromClient(SpellEntry const* spellInfo)
 inline bool IsSpellRequireTarget(SpellEntry const* spellInfo)
 {
     for (uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
-        if (IsUnitTargetTarget(spellInfo->EffectImplicitTargetA[i]))
+        if (IsUnitTargetTarget(spellInfo->EffectImplicitTargetA[i]) || IsUnitTargetTarget(spellInfo->EffectImplicitTargetB[i]))
             return true;
 
     return false;
@@ -1421,6 +1564,46 @@ inline bool IsPositiveSpell(uint32 spellId, const WorldObject* caster = nullptr,
     return IsPositiveSpell(sSpellTemplate.LookupEntry<SpellEntry>(spellId), caster, target);
 }
 
+inline bool CanPierceImmuneAura(SpellEntry const* spellInfo, SpellEntry const* auraSpellInfo, uint8 effectMask = 0, SpellEffectIndex effIdx = EFFECT_INDEX_0)
+{
+    // aura can't be pierced
+    if (auraSpellInfo && auraSpellInfo->HasAttribute(SPELL_ATTR_UNAFFECTED_BY_INVULNERABILITY))
+        return false;
+
+    // these spells pierce all available spells (Resurrection Sickness for example)
+    if (spellInfo->HasAttribute(SPELL_ATTR_UNAFFECTED_BY_INVULNERABILITY))
+        return true;
+
+    if (!auraSpellInfo)
+        return false;
+
+    // these spells (Cyclone for example) can pierce all...
+    if (spellInfo->HasAttribute(SPELL_ATTR_EX_UNAFFECTED_BY_SCHOOL_IMMUNE) || spellInfo->HasAttribute(SPELL_ATTR_EX2_UNAFFECTED_BY_AURA_SCHOOL_IMMUNE))
+    {
+        // ...but not these (Divine shield, Ice block, Cyclone and Banish for example)
+        if (auraSpellInfo->Mechanic != MECHANIC_IMMUNE_SHIELD &&
+            auraSpellInfo->Mechanic != MECHANIC_INVULNERABILITY &&
+            auraSpellInfo->Mechanic != MECHANIC_BANISH)
+            return true;
+    }
+
+    if (spellInfo->HasAttribute(SPELL_ATTR_EX_DISPEL_AURAS_ON_IMMUNITY))
+    {
+        for (int i = 0; i < MAX_EFFECT_INDEX; ++i)
+        {
+            uint32 miscValue = (uint32)spellInfo->EffectMiscValue[i];
+            if (spellInfo->Effect[i] && spellInfo->EffectApplyAuraName[i] == SPELL_AURA_MECHANIC_IMMUNITY_MASK)
+                if (effectMask & (1 << i))
+                    if (miscValue & (1 << auraSpellInfo->Mechanic) || miscValue & (1 << auraSpellInfo->EffectMechanic[effIdx]))
+                        return true;
+        }
+    }
+
+    // TODO: Add SPELL_ATTR_EX_DISPEL_AURAS_ON_IMMUNITY logic
+
+    return false;
+}
+
 inline void GetChainJumpRange(SpellEntry const* spellInfo, SpellEffectIndex effIdx, float& minSearchRangeCaster, float& maxSearchRangeTarget)
 { 
     const SpellRangeEntry* range = sSpellRangeStore.LookupEntry(spellInfo->rangeIndex);
@@ -1445,21 +1628,13 @@ inline void GetChainJumpRange(SpellEntry const* spellInfo, SpellEffectIndex effI
             minSearchRangeCaster = 0.f;
             maxSearchRangeTarget = 150.f;
             break;
+        case 44537: // Fel Lightning - MgT / SWP
+        case 46048:
+        case 46480:
+            maxSearchRangeTarget = 50.f;
+            break;
         default:   // default jump radius
             break;
-    }
-}
-
-inline bool IsSpellCanTargetUnattackable(SpellEntry const* spellInfo) // TODO: Remove through targeting research
-{
-    switch (spellInfo->Id) // spells that target minipets, which are inherently non attackable
-    {
-        case 33346:
-        case 33827:
-        case 44877:
-            return true;
-        default:
-            return false;
     }
 }
 
@@ -1634,7 +1809,10 @@ inline bool IsIgnoreLosSpellEffect(SpellEntry const* spellInfo, SpellEffectIndex
     // TODO: Move this to target logic
     switch (spellInfo->EffectImplicitTargetA[effIdx])
     {
-        case TARGET_UNIT_RAID_AND_CLASS: return true;
+        case TARGET_UNIT_FRIEND_CHAIN_HEAL: // checked for LOS but in a custom chain way
+        case TARGET_UNIT_FRIEND_AND_PARTY:
+        case TARGET_UNIT_RAID_AND_CLASS:
+        case TARGET_ENUM_UNITS_PARTY_WITHIN_CASTER_RANGE: return true;
         default: break;
     }
 
@@ -2078,6 +2256,8 @@ inline bool IsStackableAuraEffect(SpellEntry const* entry, SpellEntry const* ent
         case SPELL_AURA_HASTE_SPELLS: // Post 2.0 Mind-numbing Poison and Curse of Tongues
             return false; // Never stacking auras
             break;
+        case SPELL_AURA_MOD_DETECT_RANGE: // Never stack
+            return false;
     }
     if (nonmui && instance && !IsChanneledSpell(entry) && !IsChanneledSpell(entry2))
         return false; // Forbids multi-ranking and multi-application on rule, exclude channeled spells (like Mind Flay)
@@ -2180,69 +2360,70 @@ DiminishingGroup GetDiminishingReturnsGroupForSpell(SpellEntry const* spellproto
 bool IsDiminishingReturnsGroupDurationLimited(DiminishingGroup group);
 bool IsDiminishingReturnsGroupDurationDiminished(DiminishingGroup group, bool pvp);
 DiminishingReturnsType GetDiminishingReturnsGroupType(DiminishingGroup group);
+bool IsSubjectToDiminishingLevels(DiminishingGroup group, bool pvp);
 bool IsCreatureDRSpell(SpellEntry const* spellInfo);
 
 // Spell affects related declarations (accessed using SpellMgr functions)
 typedef std::map<uint32, uint64> SpellAffectMap;
 
 // Spell proc event related declarations (accessed using SpellMgr functions)
-enum ProcFlags
+enum ProcFlags : uint32
 {
     PROC_FLAG_NONE                          = 0x00000000,
 
-    PROC_FLAG_KILLED                        = 0x00000001,   // 00 Killed by aggressor
+    PROC_FLAG_HEARTBEAT                     = 0x00000001,   // 00 Killed by aggressor - TODO: change meaning
     PROC_FLAG_KILL                          = 0x00000002,   // 01 Kill target (in most cases need XP/Honor reward, see Unit::IsTriggeredAtSpellProcEvent for additinoal check)
 
-    PROC_FLAG_SUCCESSFUL_MELEE_HIT          = 0x00000004,   // 02 Successful melee auto attack
-    PROC_FLAG_TAKEN_MELEE_HIT               = 0x00000008,   // 03 Taken damage from melee auto attack hit
+    PROC_FLAG_DEAL_MELEE_SWING              = 0x00000004,   // 02 Successful melee auto attack
+    PROC_FLAG_TAKE_MELEE_SWING              = 0x00000008,   // 03 Taken damage from melee auto attack hit
 
-    PROC_FLAG_SUCCESSFUL_MELEE_SPELL_HIT    = 0x00000010,   // 04 Successful attack by Spell that use melee weapon
-    PROC_FLAG_TAKEN_MELEE_SPELL_HIT         = 0x00000020,   // 05 Taken damage by Spell that use melee weapon
+    PROC_FLAG_DEAL_MELEE_ABILITY            = 0x00000010,   // 04 Successful attack by Spell that use melee weapon
+    PROC_FLAG_TAKE_MELEE_ABILITY            = 0x00000020,   // 05 Taken damage by Spell that use melee weapon
 
-    PROC_FLAG_SUCCESSFUL_RANGED_HIT         = 0x00000040,   // 06 Successful Ranged auto attack
-    PROC_FLAG_TAKEN_RANGED_HIT              = 0x00000080,   // 07 Taken damage from ranged auto attack
+    PROC_FLAG_DEAL_RANGED_ATTACK            = 0x00000040,   // 06 Successful Ranged auto attack
+    PROC_FLAG_TAKE_RANGED_ATTACK            = 0x00000080,   // 07 Taken damage from ranged auto attack
 
-    PROC_FLAG_SUCCESSFUL_RANGED_SPELL_HIT   = 0x00000100,   // 08 Successful Ranged attack by Spell that use ranged weapon
-    PROC_FLAG_TAKEN_RANGED_SPELL_HIT        = 0x00000200,   // 09 Taken damage by Spell that use ranged weapon
+    PROC_FLAG_DEAL_RANGED_ABILITY           = 0x00000100,   // 08 Successful Ranged attack by Spell that use ranged weapon
+    PROC_FLAG_TAKE_RANGED_ABILITY           = 0x00000200,   // 09 Taken damage by Spell that use ranged weapon
 
-    PROC_FLAG_DONE_SPELL_NONE_DMG_CLASS_POS     = 0x00000400,  // 10 Done positive spell that has dmg class none
-    PROC_FLAG_TAKEN_SPELL_NONE_DMG_CLASS_POS    = 0x00000800,  // 11 Taken positive spell that has dmg class none
+    PROC_FLAG_DEAL_HELPFUL_ABILITY          = 0x00000400,   // 10 Done positive spell that has dmg class none
+    PROC_FLAG_TAKE_HELPFUL_ABILITY          = 0x00000800,   // 11 Taken positive spell that has dmg class none
 
-    PROC_FLAG_DONE_SPELL_NONE_DMG_CLASS_NEG     = 0x00001000,  // 12 Done negative spell that has dmg class none
-    PROC_FLAG_TAKEN_SPELL_NONE_DMG_CLASS_NEG    = 0x00002000,  // 13 Taken negative spell that has dmg class none
+    PROC_FLAG_DEAL_HARMFUL_ABILITY          = 0x00001000,   // 12 Done negative spell that has dmg class none
+    PROC_FLAG_TAKE_HARMFUL_ABILITY          = 0x00002000,   // 13 Taken negative spell that has dmg class none
 
-    PROC_FLAG_DONE_SPELL_MAGIC_DMG_CLASS_POS    = 0x00004000,  // 14 Successful cast positive spell (by default only on healing)
-    PROC_FLAG_TAKEN_SPELL_MAGIC_DMG_CLASS_POS   = 0x00008000,  // 15 Taken positive spell hit (by default only on healing)
+    PROC_FLAG_DEAL_HELPFUL_SPELL            = 0x00004000,   // 14 Successful cast positive spell (by default only on healing)
+    PROC_FLAG_TAKE_HELPFUL_SPELL            = 0x00008000,   // 15 Taken positive spell hit (by default only on healing)
 
-    PROC_FLAG_DONE_SPELL_MAGIC_DMG_CLASS_NEG    = 0x00010000,  // 16 Successful negative spell cast (by default only on damage)
-    PROC_FLAG_TAKEN_SPELL_MAGIC_DMG_CLASS_NEG   = 0x00020000,  // 17 Taken negative spell (by default only on damage)
+    PROC_FLAG_DEAL_HARMFUL_SPELL            = 0x00010000,   // 16 Successful negative spell cast (by default only on damage)
+    PROC_FLAG_TAKE_HARMFUL_SPELL            = 0x00020000,   // 17 Taken negative spell (by default only on damage)
 
-    PROC_FLAG_ON_DO_PERIODIC                = 0x00040000,   // 18 Successful do periodic (damage / healing, determined by PROC_EX_PERIODIC_POSITIVE or negative if no procEx)
-    PROC_FLAG_ON_TAKE_PERIODIC              = 0x00080000,   // 19 Taken spell periodic (damage / healing, determined by PROC_EX_PERIODIC_POSITIVE or negative if no procEx)
+    PROC_FLAG_DEAL_HARMFUL_PERIODIC         = 0x00040000,   // 18 Successful do periodic (damage / healing, determined by PROC_EX_PERIODIC_POSITIVE or negative if no procEx)
+    PROC_FLAG_TAKE_HARMFUL_PERIODIC         = 0x00080000,   // 19 Taken spell periodic (damage / healing, determined by PROC_EX_PERIODIC_POSITIVE or negative if no procEx)
 
-    PROC_FLAG_TAKEN_ANY_DAMAGE              = 0x00100000,   // 20 Taken any damage
-    PROC_FLAG_ON_TRAP_ACTIVATION            = 0x00200000,   // 21 On trap activation
+    PROC_FLAG_TAKE_ANY_DAMAGE               = 0x00100000,   // 20 Taken any damage
+    PROC_FLAG_DEAL_HELPFUL_PERIODIC         = 0x00200000,   // 21 On trap activation - TODO: change meaning
 
-    PROC_FLAG_TAKEN_OFFHAND_HIT             = 0x00400000,   // 22 Taken off-hand melee attacks(not used)
-    PROC_FLAG_SUCCESSFUL_OFFHAND_HIT        = 0x00800000,   // 23 Successful off-hand melee attacks
+    PROC_FLAG_MAIN_HAND_WEAPON_SWING        = 0x00400000,   // 22 Taken off-hand melee attacks(not used) - TODO: change meaning
+    PROC_FLAG_OFF_HAND_WEAPON_SWING         = 0x00800000,   // 23 Successful off-hand melee attacks
 
     PROC_FLAG_DEATH                         = 0x01000000,   // 24 On death by any means
 };
 
-#define MELEE_BASED_TRIGGER_MASK (PROC_FLAG_SUCCESSFUL_MELEE_HIT        | \
-                                  PROC_FLAG_TAKEN_MELEE_HIT             | \
-                                  PROC_FLAG_SUCCESSFUL_MELEE_SPELL_HIT  | \
-                                  PROC_FLAG_TAKEN_MELEE_SPELL_HIT       | \
-                                  PROC_FLAG_SUCCESSFUL_RANGED_HIT       | \
-                                  PROC_FLAG_TAKEN_RANGED_HIT            | \
-                                  PROC_FLAG_SUCCESSFUL_RANGED_SPELL_HIT | \
-                                  PROC_FLAG_TAKEN_RANGED_SPELL_HIT)
+#define MELEE_BASED_TRIGGER_MASK (PROC_FLAG_DEAL_MELEE_SWING        | \
+                                  PROC_FLAG_TAKE_MELEE_SWING             | \
+                                  PROC_FLAG_DEAL_MELEE_ABILITY  | \
+                                  PROC_FLAG_TAKE_MELEE_ABILITY       | \
+                                  PROC_FLAG_DEAL_RANGED_ATTACK       | \
+                                  PROC_FLAG_TAKE_RANGED_ABILITY            | \
+                                  PROC_FLAG_DEAL_RANGED_ABILITY | \
+                                  PROC_FLAG_TAKE_RANGED_ABILITY)
 
 #define NEGATIVE_TRIGGER_MASK (MELEE_BASED_TRIGGER_MASK                | \
-                               PROC_FLAG_DONE_SPELL_NONE_DMG_CLASS_NEG      | \
-                               PROC_FLAG_TAKEN_SPELL_NONE_DMG_CLASS_NEG           | \
-                               PROC_FLAG_DONE_SPELL_MAGIC_DMG_CLASS_NEG | \
-                               PROC_FLAG_TAKEN_SPELL_MAGIC_DMG_CLASS_NEG)
+                               PROC_FLAG_DEAL_HARMFUL_ABILITY      | \
+                               PROC_FLAG_TAKE_HARMFUL_ABILITY           | \
+                               PROC_FLAG_DEAL_HARMFUL_SPELL | \
+                               PROC_FLAG_TAKE_HARMFUL_SPELL)
 
 enum ProcFlagsEx
 {
@@ -2752,7 +2933,7 @@ class SpellMgr
             return itr->second;
         }
 
-        static bool IsSpellProcEventCanTriggeredBy(SpellProcEventEntry const* spellProcEvent, uint32 EventProcFlag, SpellEntry const* procSpell, uint32 procFlags, uint32 procExtra);
+        static bool IsSpellProcEventCanTriggeredBy(SpellProcEventEntry const* spellProcEvent, uint32 EventProcFlag, SpellEntry const* spellInfo, uint32 procFlags, uint32 procExtra);
 
         // Spell bonus data
         SpellBonusEntry const* GetSpellBonusData(uint32 spellId) const

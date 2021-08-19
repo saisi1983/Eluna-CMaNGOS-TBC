@@ -54,6 +54,9 @@ enum
     SPELL_BERSERK                   = 26662,
     SPELL_SUMMON_DEATH_CLOUD        = 45884,                // Summoned on death
 
+    SPELL_DUAL_WEILD_PASSIVE        = 42459,
+    SPELL_TAUNT_HIT_CHANCE          = 45210,
+
     // Epilogue spells
     SPELL_BRUTALLUS_DEATH_CLOUD     = 45212,
     SPELL_FELBLAZE_PREVIZUAL        = 44885,
@@ -136,6 +139,9 @@ struct boss_brutallusAI : public ScriptedAI, private DialogueHelper
 
         m_bCanDoMeleeAttack = true;
         m_bIsIntroInProgress = false;
+
+        DoCastSpellIfCan(nullptr, SPELL_DUAL_WEILD_PASSIVE, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
+        DoCastSpellIfCan(nullptr, SPELL_TAUNT_HIT_CHANCE, CAST_TRIGGERED | CAST_AURA_NOT_PRESENT);
     }
 
     void Aggro(Unit* pWho) override

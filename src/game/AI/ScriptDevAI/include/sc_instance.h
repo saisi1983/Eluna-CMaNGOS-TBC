@@ -65,6 +65,8 @@ class ScriptedInstance : public InstanceData
             DoOrSimulateScriptTextForMap(textEntry, creatureEntry, instance, GetSingleCreatureFromStorage(creatureEntry, true));
         }
 
+        void BanPlayersIfNoGm(const std::string& reason);
+
     protected:
         void DespawnGuids(GuidVector& spawns); // despawns all creature guids and clears contents
 
@@ -118,6 +120,9 @@ class DialogueHelper
         void StartNextDialogueText(int32 textEntry);
 
         void DialogueUpdate(uint32 diff);
+
+        // for use on death or respawn applicably
+        void DisableDialogue() { m_timer = 0; }
 
     protected:
         /// Will be called when a dialogue step was done

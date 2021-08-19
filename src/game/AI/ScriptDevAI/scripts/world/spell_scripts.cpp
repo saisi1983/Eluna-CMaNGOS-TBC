@@ -239,13 +239,13 @@ bool EffectAuraDummy_spell_aura_dummy_npc(const Aura* pAura, bool bApply)
 
             Creature* pTarget = (Creature*)pAura->GetTarget();
 
-            if (Creature* pCreature = GetClosestCreatureWithEntry(pTarget, NPC_DARKSPINE_MYRMIDON, 25.0f))
+            if (Creature* pCreature = GetClosestCreatureWithEntry(pTarget, NPC_DARKSPINE_MYRMIDON, 50.0f))
             {
                 pTarget->AI()->AttackStart(pCreature);
                 return true;
             }
 
-            if (Creature* pCreature = GetClosestCreatureWithEntry(pTarget, NPC_DARKSPINE_SIREN, 25.0f))
+            if (Creature* pCreature = GetClosestCreatureWithEntry(pTarget, NPC_DARKSPINE_SIREN, 50.0f))
             {
                 pTarget->AI()->AttackStart(pCreature);
                 return true;
@@ -429,7 +429,7 @@ struct GreaterInvisibilityMob : public AuraScript
         Cell::VisitWorldObjects(invisible, searcher, invisible->GetDetectionRange());
         for (Unit* nearby : nearbyTargets)
         {
-            if (invisible->CanAttackOnSight(nearby))
+            if (invisible->CanAttackOnSight(nearby) && invisible->IsWithinLOSInMap(nearby, true))
             {
                 invisible->AI()->AttackStart(nearby);
                 return;
@@ -603,6 +603,59 @@ struct TKDive : public SpellScript
     }
 };
 
+struct CurseOfPain : public AuraScript
+{
+    void OnPeriodicTickEnd(Aura* aura) const override
+    {
+        if (aura->GetTarget()->GetHealthPercent() < 50.f)
+            aura->GetTarget()->RemoveAurasDueToSpell(aura->GetId());
+    }
+};
+
+enum SeedOfCorruptionNpc
+{
+    SPELL_SEED_OF_CORRUPTION_PROC_DEFAULT   = 32865,
+    SPELL_SEED_OF_CORRUPTION_NPC_24558      = 44141,
+    SPELL_SEED_OF_CORRUPTION_PROC_NPC_24558 = 43991,
+};
+
+struct spell_seed_of_corruption_npc : public AuraScript
+{
+    SpellAuraProcResult OnProc(Aura* aura, ProcExecutionData& procData) const override
+    {
+        if (aura->GetEffIndex() != EFFECT_INDEX_1)
+            return SPELL_AURA_PROC_OK;
+        Modifier* mod = procData.triggeredByAura->GetModifier();
+        // if damage is more than need deal finish spell
+        if (mod->m_amount <= (int32)procData.damage)
+        {
+            // remember guid before aura delete
+            ObjectGuid casterGuid = procData.triggeredByAura->GetCasterGuid();
+
+            int32 basePoints = 2000; // guesswork, need to fill for all spells that use this because its not in spell data
+
+            // Remove aura (before cast for prevent infinite loop handlers)
+            procData.victim->RemoveAurasByCasterSpell(procData.triggeredByAura->GetId(), procData.triggeredByAura->GetCasterGuid());
+
+            // Cast finish spell (triggeredByAura already not exist!)
+            uint32 triggered_spell_id = 0;
+            switch (aura->GetSpellProto()->Id)
+            {
+                case SPELL_SEED_OF_CORRUPTION_NPC_24558: triggered_spell_id = SPELL_SEED_OF_CORRUPTION_PROC_NPC_24558; break;
+                default: triggered_spell_id = SPELL_SEED_OF_CORRUPTION_PROC_DEFAULT; break;
+            }
+            if (Unit* caster = procData.triggeredByAura->GetCaster())
+                caster->CastCustomSpell(procData.victim, triggered_spell_id, &basePoints, nullptr, nullptr, TRIGGERED_OLD_TRIGGERED);
+
+            return SPELL_AURA_PROC_OK;              // no hidden cooldown
+        }
+
+        // Damage counting
+        mod->m_amount -= procData.damage;
+        return SPELL_AURA_PROC_OK;
+    }
+};
+
 /* *****************************
 *  PX-238 Winter Wondervolt TRAP
 *******************************/
@@ -662,6 +715,8 @@ void AddSC_spell_scripts()
     RegisterSpellScript<RaiseDead>("spell_raise_dead");
     RegisterSpellScript<SplitDamage>("spell_split_damage");
     RegisterSpellScript<TKDive>("spell_tk_dive");
+    RegisterAuraScript<CurseOfPain>("spell_curse_of_pain");
+    RegisterAuraScript<spell_seed_of_corruption_npc>("spell_seed_of_corruption_npc");
     RegisterSpellScript<WondervoltTrap>("spell_wondervolt_trap");
     RegisterSpellScript<ArcaneCloaking>("spell_arcane_cloaking");
 }

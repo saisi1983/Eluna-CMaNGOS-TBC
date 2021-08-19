@@ -154,7 +154,7 @@ SpellCastResult Pet::TryLoadFromDB(Unit* owner, uint32 petentry /*= 0*/, uint32 
     return SPELL_CAST_OK; // If errors occur down the line, one must think about data consistency
 }
 
-bool Pet::LoadPetFromDB(Player* owner, uint32 petentry /*= 0*/, uint32 petnumber /*= 0*/, bool current /*= false*/, uint32 healthPercentage /*= 0*/, bool permanentOnly /*= false*/, bool forced /*= false*/)
+bool Pet::LoadPetFromDB(Player* owner, Position const& spawnPos, uint32 petentry /*= 0*/, uint32 petnumber /*= 0*/, bool current /*= false*/, uint32 healthPercentage /*= 0*/, bool permanentOnly /*= false*/, bool forced /*= false*/)
 {
     m_loading = true;
 
@@ -248,7 +248,7 @@ bool Pet::LoadPetFromDB(Player* owner, uint32 petentry /*= 0*/, uint32 petnumber
 
     Map* map = owner->GetMap();
 
-    CreatureCreatePos pos(owner, owner->GetOrientation(), PET_FOLLOW_DIST, PET_FOLLOW_ANGLE);
+    CreatureCreatePos pos(owner->GetMap(), spawnPos.x, spawnPos.y, spawnPos.z, spawnPos.o);
 
     uint32 guid = pos.GetMap()->GenerateLocalLowGuid(HIGHGUID_PET);
     if (!Create(guid, pos, creatureInfo, pet_number))
@@ -573,6 +573,13 @@ void Pet::SavePetToDB(PetSaveMode mode, Player* owner)
     }
 }
 
+Position Pet::GetPetSpawnPosition(Player* owner)
+{
+    Position pos;
+    owner->GetFirstCollisionPosition(pos, 2.f, owner->GetOrientation() + M_PI_F / 2);
+    return pos;
+}
+
 void Pet::DeleteFromDB(uint32 guidlow, bool separate_transaction)
 {
     if (separate_transaction)
@@ -686,9 +693,9 @@ void Pet::Update(const uint32 diff)
         {
             // unsummon pet that lost owner
             Unit* owner = GetOwner();
-            if (!owner ||
+            if ((!owner ||
                     (!IsWithinDistInMap(owner, GetMap()->GetVisibilityDistance()) && (owner->HasCharm() && !owner->HasCharm(GetObjectGuid()))) ||
-                    (isControlled() && !owner->GetPetGuid()))
+                    (isControlled() && !owner->GetPetGuid())) && (!IsGuardian() || !IsInCombat()))
             {
                 Unsummon(PET_SAVE_REAGENTS);
                 return;
@@ -1045,12 +1052,18 @@ void Pet::Unsummon(PetSaveMode mode, Unit* owner /*= nullptr*/)
                     p_owner->GetTemporaryUnsummonedPetNumber() != GetCharmInfo()->GetPetNumber())
                 mode = PET_SAVE_NOT_IN_SLOT;
 
-            if (mode == PET_SAVE_REAGENTS)
+            uint32 spellId = GetUInt32Value(UNIT_CREATED_BY_SPELL);
+            SpellEntry const* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
+            // save minion for resummoning at resurrection in BGs
+            // only save the summon spell in the case where the minion did not die before the warlock, otherwise reset it
+            if (mode == PET_SAVE_REAGENTS && p_owner->getClass() == CLASS_WARLOCK && p_owner->InBattleGround() && isControlled() && !isTemporarySummoned() && spellInfo)
+                p_owner->SetBGPetSpell(spellId);
+            else
+                p_owner->SetBGPetSpell(0);
+
+            if (mode == PET_SAVE_REAGENTS && !p_owner->InBattleGround()) // don't restore reagents in BGs - minion will be automatically ressurected
             {
                 // returning of reagents only for players, so best done here
-                uint32 spellId = GetUInt32Value(UNIT_CREATED_BY_SPELL);
-                SpellEntry const* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
-
                 if (spellInfo)
                 {
                     for (uint32 i = 0; i < MAX_SPELL_REAGENTS; ++i)
@@ -1450,6 +1463,8 @@ void Pet::InitPetScalingAuras()
             CastSpell(nullptr, 34958, TRIGGERED_NONE);
             break;
         case 12740: // Infernal - Warlock - unique - isnt updated on stat changes
+        case 18541: // Doomguard - Ritual of Doom
+        case 18662: // Doomguard - Curse of Doom
             CastSpell(nullptr, 36186, TRIGGERED_NONE);
             CastSpell(nullptr, 36188, TRIGGERED_NONE);
             CastSpell(nullptr, 36189, TRIGGERED_NONE);

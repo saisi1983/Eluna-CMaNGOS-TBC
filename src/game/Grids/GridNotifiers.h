@@ -150,13 +150,8 @@ namespace MaNGOS
         DynamicObject& i_dynobject;
         Unit* i_check;
         bool i_positive;
-        DynamicObjectUpdater(DynamicObject& dynobject, Unit* caster, bool positive) : i_dynobject(dynobject), i_positive(positive)
-        {
-            i_check = caster;
-            Unit* owner = i_check->GetOwner();
-            if (owner)
-                i_check = owner;
-        }
+        bool i_script;
+        DynamicObjectUpdater(DynamicObject& dynobject, Unit* caster, bool positive);
 
         template<class T> inline void Visit(GridRefManager<T>&) {}
 #ifdef _MSC_VER
@@ -1042,7 +1037,7 @@ namespace MaNGOS
 
             bool operator()(Unit* currUnit)
             {
-                if (currUnit->IsAlive() && (m_source->IsAttackedBy(currUnit) || (m_owner && m_owner->IsAttackedBy(currUnit)) || m_source->IsEnemy(currUnit))
+                if (currUnit->IsAlive() && (m_source->IsAttackedBy(currUnit) || (m_owner && m_owner->IsAttackedBy(currUnit)) || m_source->IsEnemy(currUnit) || currUnit->IsEnemy(m_source))
                     && m_source->CanAttack(currUnit)
                     && currUnit->IsVisibleForOrDetect(m_source, m_source, false)
                     && m_source->IsWithinDistInMap(currUnit, m_range))
@@ -1217,7 +1212,7 @@ namespace MaNGOS
             WorldObject const& GetFocusObject() const { return i_obj; }
             bool operator()(Creature* u)
             {
-                if (i_entries.find(i_guids ? u->GetGUIDLow() : u->GetEntry()) != i_entries.end() && ((i_alive && u->IsAlive()) || (!i_alive && u->IsCorpse())) && (!i_excludeSelf || (&i_obj != u)))
+                if (i_entries.find(i_guids ? u->GetDbGuid() : u->GetEntry()) != i_entries.end() && ((i_alive && u->IsAlive()) || (!i_alive && u->IsCorpse())) && (!i_excludeSelf || (&i_obj != u)))
                 {
                     if (i_obj.IsWithinCombatDistInMap(u, i_range, i_is3D))
                         return true;
