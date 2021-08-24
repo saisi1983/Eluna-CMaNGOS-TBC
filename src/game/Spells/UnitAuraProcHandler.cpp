@@ -1259,20 +1259,6 @@ SpellAuraProcResult Unit::HandleDummyAuraProc(ProcExecutionData& data)
                     CastSpell(this, 28682, TRIGGERED_OLD_TRIGGERED, castItem, triggeredByAura);
                     return (procEx & PROC_EX_CRITICAL_HIT) ? SPELL_AURA_PROC_OK : SPELL_AURA_PROC_FAILED; // charge update only at crit hits, no hidden cooldowns
                 }
-                case 30554: // Wrath of the Titans - Karazhan
-                {
-                    switch (GetFirstSchoolInMask(GetSpellSchoolMask(spellInfo)))
-                    {
-                        case SPELL_SCHOOL_NORMAL: return SPELL_AURA_PROC_FAILED;  // ignore
-                        case SPELL_SCHOOL_FIRE:   triggered_spell_id = 30607; break; // Flame of Khaz'goroth
-                        case SPELL_SCHOOL_NATURE: triggered_spell_id = 30606; break; // Bolt of Eonar
-                        case SPELL_SCHOOL_FROST:  triggered_spell_id = 30609; break; // Chill of Norgannon
-                        case SPELL_SCHOOL_SHADOW: triggered_spell_id = 30608; break; // Spite of Sargeras
-                        case SPELL_SCHOOL_ARCANE: triggered_spell_id = 30605; break; // Blast of Amanthul
-                        default: return SPELL_AURA_PROC_FAILED;
-                    }
-                    break;
-                }
             }
             break;
         }
@@ -2628,7 +2614,7 @@ SpellAuraProcResult Unit::HandleProcTriggerDamageAuraProc(ProcExecutionData& dat
     Unit* victim = data.target; Aura* triggeredByAura = data.triggeredByAura;
     SpellEntry const* spellInfo = triggeredByAura->GetSpellProto();
     DEBUG_FILTER_LOG(LOG_FILTER_SPELL_CAST, "ProcDamageAndSpell: doing %u damage from spell id %u (triggered by auratype %u of spell %u)",
-        triggeredByAura->GetModifier()->m_amount, spellInfo->Id, triggeredByAura->GetModifier()->m_auraname, triggeredByAura->GetId());
+                     triggeredByAura->GetModifier()->m_amount, spellInfo->Id, triggeredByAura->GetModifier()->m_auraname, triggeredByAura->GetId());
     // Trigger damage can be resisted...
     if (SpellMissInfo missInfo = this->SpellHitResult(victim, spellInfo, uint8(1 << triggeredByAura->GetEffIndex()), false))
     {
@@ -2850,7 +2836,7 @@ SpellAuraProcResult Unit::HandleRaidProcFromChargeWithValueAuraProc(ProcExecutio
 
         if (Player* caster = static_cast<Player*>(triggeredByAura->GetCaster()))
         {
-            caster->ApplySpellMod(spellProto->Id, SPELLMOD_RADIUS, radius, nullptr);
+            caster->ApplySpellMod(spellProto->Id, SPELLMOD_RADIUS, radius);
 
             if (Player* target = static_cast<Player*>(this)->GetNextRaidMemberWithLowestLifePercentage(radius, SPELL_AURA_RAID_PROC_FROM_CHARGE_WITH_VALUE))
             {

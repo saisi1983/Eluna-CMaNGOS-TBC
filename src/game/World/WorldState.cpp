@@ -17,6 +17,8 @@
 */
 
 #include "WorldState.h"
+#include "Chat/ChannelMgr.h"
+#include "Globals/SharedDefines.h"
 #include "World/World.h"
 #include "Maps/MapManager.h"
 #include "Entities/Object.h"
@@ -43,6 +45,69 @@ enum
     GROMGOLOG_EVENT_4   = 15325,
 };
 
+std::map<AQResources, WorldStateID> aqWorldstateMap =
+{
+    {AQ_PEACEBLOOM, WORLD_STATE_AQ_PEACEBLOOM_NOW},
+    {AQ_LEAN_WOLF_STEAK, WORLD_STATE_AQ_LEAN_WOLF_STEAK_NOW},
+    {AQ_TIN_BAR, WORLD_STATE_AQ_TIN_BARS_NOW},
+    {AQ_WOOL_BANDAGE, WORLD_STATE_AQ_WOOL_BANDAGE_NOW},
+    {AQ_FIREBLOOM, WORLD_STATE_AQ_FIREBLOOM_NOW},
+    {AQ_HEAVY_LEATHER, WORLD_STATE_AQ_HEAVY_LEATHER_NOW},
+    {AQ_MITHRIL_BAR, WORLD_STATE_AQ_MITHRIL_BARS_NOW},
+    {AQ_MAGEWEAVE_BANDAGE, WORLD_STATE_AQ_MAGEWEAVE_BANDAGE_NOW},
+    {AQ_RUGGED_LEATHER, WORLD_STATE_AQ_RUGGED_LEATHER_NOW},
+    {AQ_BAKED_SALMON, WORLD_STATE_AQ_BAKED_SALMON_NOW},
+    {AQ_LIGHT_LEATHER, WORLD_STATE_AQ_LIGHT_LEATHER_NOW},
+    {AQ_LINEN_BANDAGE, WORLD_STATE_AQ_LINEN_BANDAGE_NOW},
+    {AQ_MEDIUM_LEATHER, WORLD_STATE_AQ_MEDIUM_LEATHER_NOW},
+    {AQ_STRANGLEKELP, WORLD_STATE_AQ_STRANGLEKELP_NOW},
+    {AQ_RAINBOW_FIN_ALBACORE, WORLD_STATE_AQ_RAINBOW_FIN_ALBACORE_NOW},
+    {AQ_IRON_BAR, WORLD_STATE_AQ_IRON_BARS_NOW},
+    {AQ_ROAST_RAPTOR, WORLD_STATE_AQ_ROAST_RAPTOR_NOW},
+    {AQ_SILK_BANDAGE, WORLD_STATE_AQ_SILK_BANDAGE_NOW},
+    {AQ_THORIUM_BAR, WORLD_STATE_AQ_THORIUM_BARS_NOW},
+    {AQ_ARTHAS_TEARS, WORLD_STATE_AQ_ARTHAS_TEARS_NOW},
+    {AQ_COPPER_BAR_ALLY, WORLD_STATE_AQ_COPPER_BARS_ALLY_NOW},
+    {AQ_PURPLE_LOTUS_ALLY, WORLD_STATE_AQ_PURPLE_LOTUS_ALLY_NOW},
+    {AQ_THICK_LEATHER_ALLY, WORLD_STATE_AQ_THICK_LEATHER_ALLY_NOW},
+    {AQ_SPOTTED_YELLOWTAIL_ALLY, WORLD_STATE_AQ_SPOTTED_YELLOWTAIL_ALLY_NOW},
+    {AQ_RUNECLOTH_BANDAGE_ALLY, WORLD_STATE_AQ_RUNECLOTH_BANDAGE_ALLY_NOW},
+    {AQ_COPPER_BAR_HORDE, WORLD_STATE_AQ_COPPER_BARS_HORDE_NOW},
+    {AQ_PURPLE_LOTUS_HORDE, WORLD_STATE_AQ_PURPLE_LOTUS_HORDE_NOW},
+    {AQ_THICK_LEATHER_HORDE, WORLD_STATE_AQ_THICK_LEATHER_HORDE_NOW},
+    {AQ_SPOTTED_YELLOWTAIL_HORDE, WORLD_STATE_AQ_SPOTTED_YELLOWTAIL_HORDE_NOW},
+    {AQ_RUNECLOTH_BANDAGE_HORDE, WORLD_STATE_AQ_RUNECLOTH_BANDAGE_HORDE_NOW},
+};
+
+std::vector<std::pair<WorldStateID, uint32>> aqWorldStateTotalsMap =
+{
+    {WORLD_STATE_AQ_PEACEBLOOM_TOTAL, 96000},
+    {WORLD_STATE_AQ_LEAN_WOLF_STEAK_TOTAL, 10000},
+    {WORLD_STATE_AQ_TIN_BARS_TOTAL, 22000},
+    {WORLD_STATE_AQ_WOOL_BANDAGE_TOTAL, 250000},
+    {WORLD_STATE_AQ_FIREBLOOM_TOTAL, 19000},
+    {WORLD_STATE_AQ_HEAVY_LEATHER_TOTAL, 60000},
+    {WORLD_STATE_AQ_MITHRIL_BARS_TOTAL, 18000},
+    {WORLD_STATE_AQ_MAGEWEAVE_BANDAGE_TOTAL, 250000},
+    {WORLD_STATE_AQ_RUGGED_LEATHER_TOTAL, 60000},
+    {WORLD_STATE_AQ_BAKED_SALMON_TOTAL, 10000},
+    {WORLD_STATE_AQ_LIGHT_LEATHER_TOTAL, 180000},
+    {WORLD_STATE_AQ_LINEN_BANDAGE_TOTAL, 800000},
+    {WORLD_STATE_AQ_MEDIUM_LEATHER_TOTAL, 110000},
+    {WORLD_STATE_AQ_STRANGLEKELP_TOTAL, 33000},
+    {WORLD_STATE_AQ_RAINBOW_FIN_ALBACORE_TOTAL, 14000},
+    {WORLD_STATE_AQ_IRON_BARS_TOTAL, 28000},
+    {WORLD_STATE_AQ_ROAST_RAPTOR_TOTAL, 20000},
+    {WORLD_STATE_AQ_SILK_BANDAGE_TOTAL, 600000},
+    {WORLD_STATE_AQ_THORIUM_BARS_TOTAL, 24000},
+    {WORLD_STATE_AQ_ARTHAS_TEARS_TOTAL, 20000},
+    {WORLD_STATE_AQ_COPPER_BARS_TOTAL, 45000},
+    {WORLD_STATE_AQ_PURPLE_LOTUS_TOTAL, 13000},
+    {WORLD_STATE_AQ_THICK_LEATHER_TOTAL, 40000},
+    {WORLD_STATE_AQ_SPOTTED_YELLOWTAIL_TOTAL, 8500},
+    {WORLD_STATE_AQ_RUNECLOTH_BANDAGE_TOTAL, 200000},
+};
+
 WorldState::WorldState() : m_emeraldDragonsState(0xF), m_emeraldDragonsTimer(0), m_emeraldDragonsChosenPositions(4, 0), m_isMagtheridonHeadSpawnedHorde(false), m_isMagtheridonHeadSpawnedAlliance(false),
     m_adalSongOfBattleTimer(0), m_expansion(EXPANSION_TBC), m_highlordKruulSpawned(false), m_highlordKruulTimer(0), m_highlordKruulChosenPosition(0)
 {
@@ -50,6 +115,9 @@ WorldState::WorldState() : m_emeraldDragonsState(0xF), m_emeraldDragonsTimer(0),
     m_transportStates[GROMGOL_ORGRIMMAR]    = OGUC_EVENT_1;
     m_transportStates[ORGRIMMAR_UNDERCITY]  = GROMGOLOG_EVENT_1;
     memset(m_loveIsInTheAirData.counters, 0, sizeof(LoveIsInTheAir));
+
+    for (auto& data : aqWorldstateMap)
+        m_aqWorldstateMapReverse.emplace(data.second, data.first);
 }
 
 
@@ -106,6 +174,7 @@ void WorldState::Load()
                             }
                             for (uint32 i = 0; i < RESOURCE_MAX; ++i)
                                 loadStream >> m_aqData.m_WarEffortCounters[i];
+                            loadStream >> m_aqData.m_phase2Tier;
                         }
                         catch (std::exception& e)
                         {
@@ -202,6 +271,7 @@ void WorldState::Load()
         while (result->NextRow());
     }
     StartWarEffortEvent();
+    SpawnWarEffortGos();
     RespawnEmeraldDragons();
     StartSunsReachPhase(true);
     StartSunwellGatePhase();
@@ -555,6 +625,18 @@ void WorldState::HandlePlayerLeaveArea(Player* player, uint32 areaId)
 
 bool WorldState::IsConditionFulfilled(uint32 conditionId, uint32 state) const
 {
+    if (conditionId == WAR_EFFORT_DAYS_LEFT)
+        return m_aqData.GetDaysRemaining() == state;
+
+    auto itr = m_aqWorldstateMapReverse.find(conditionId);
+    if (itr != m_aqWorldstateMapReverse.end())
+    {
+        uint32 id = (*itr).second;
+        if (id >= aqWorldStateTotalsMap.size())
+            id -= 5;
+        return m_aqData.m_WarEffortCounters[id] == aqWorldStateTotalsMap[id].second;
+    }
+
     return m_transportStates.at(conditionId) == state;
 }
 
@@ -693,6 +775,13 @@ void WorldState::Update(const uint32 diff)
             HandleWarEffortPhaseTransition(m_aqData.m_phase + 1);
         }
         else m_aqData.m_timer -= diff;
+
+        if (m_aqData.m_phase == PHASE_2_TRANSPORTING_RESOURCES)
+        {
+            uint32 remainingDays = m_aqData.m_timer % (DAY * IN_MILLISECONDS);
+            if (remainingDays < m_aqData.m_phase2Tier)
+                ChangeWarEffortPhase2Tier(remainingDays);
+        }
     }
 }
 
@@ -803,70 +892,6 @@ void WorldState::RespawnEmeraldDragons()
     });
 }
 
-// AQ War Effort code
-std::map<AQResources, WorldStateID> aqWorldstateMap =
-{
-    {AQ_PEACEBLOOM, WORLD_STATE_AQ_PEACEBLOOM_NOW},
-    {AQ_LEAN_WOLF_STEAK, WORLD_STATE_AQ_LEAN_WOLF_STEAK_NOW},
-    {AQ_TIN_BAR, WORLD_STATE_AQ_TIN_BARS_NOW},
-    {AQ_WOOL_BANDAGE, WORLD_STATE_AQ_WOOL_BANDAGE_NOW},
-    {AQ_FIREBLOOM, WORLD_STATE_AQ_FIREBLOOM_NOW},
-    {AQ_HEAVY_LEATHER, WORLD_STATE_AQ_HEAVY_LEATHER_NOW},
-    {AQ_MITHRIL_BAR, WORLD_STATE_AQ_MITHRIL_BARS_NOW},
-    {AQ_MAGEWEAVE_BANDAGE, WORLD_STATE_AQ_MAGEWEAVE_BANDAGE_NOW},
-    {AQ_RUGGED_LEATHER, WORLD_STATE_AQ_RUGGED_LEATHER_NOW},
-    {AQ_BAKED_SALMON, WORLD_STATE_AQ_BAKED_SALMON_NOW},
-    {AQ_LIGHT_LEATHER, WORLD_STATE_AQ_LIGHT_LEATHER_NOW},
-    {AQ_LINEN_BANDAGE, WORLD_STATE_AQ_LINEN_BANDAGE_NOW},
-    {AQ_MEDIUM_LEATHER, WORLD_STATE_AQ_MEDIUM_LEATHER_NOW},
-    {AQ_STRANGLEKELP, WORLD_STATE_AQ_STRANGLEKELP_NOW},
-    {AQ_RAINBOW_FIN_ALBACORE, WORLD_STATE_AQ_RAINBOW_FIN_ALBACORE_NOW},
-    {AQ_IRON_BAR, WORLD_STATE_AQ_IRON_BARS_NOW},
-    {AQ_ROAST_RAPTOR, WORLD_STATE_AQ_ROAST_RAPTOR_NOW},
-    {AQ_SILK_BANDAGE, WORLD_STATE_AQ_SILK_BANDAGE_NOW},
-    {AQ_THORIUM_BAR, WORLD_STATE_AQ_THORIUM_BARS_NOW},
-    {AQ_ARTHAS_TEARS, WORLD_STATE_AQ_ARTHAS_TEARS_NOW},
-    {AQ_COPPER_BAR_ALLY, WORLD_STATE_AQ_COPPER_BARS_ALLY_NOW},
-    {AQ_PURPLE_LOTUS_ALLY, WORLD_STATE_AQ_PURPLE_LOTUS_ALLY_NOW},
-    {AQ_THICK_LEATHER_ALLY, WORLD_STATE_AQ_THICK_LEATHER_ALLY_NOW},
-    {AQ_SPOTTED_YELLOWTAIL_ALLY, WORLD_STATE_AQ_SPOTTED_YELLOWTAIL_ALLY_NOW},
-    {AQ_RUNECLOTH_BANDAGE_ALLY, WORLD_STATE_AQ_RUNECLOTH_BANDAGE_ALLY_NOW},
-    {AQ_COPPER_BAR_HORDE, WORLD_STATE_AQ_COPPER_BARS_HORDE_NOW},
-    {AQ_PURPLE_LOTUS_HORDE, WORLD_STATE_AQ_PURPLE_LOTUS_HORDE_NOW},
-    {AQ_THICK_LEATHER_HORDE, WORLD_STATE_AQ_THICK_LEATHER_HORDE_NOW},
-    {AQ_SPOTTED_YELLOWTAIL_HORDE, WORLD_STATE_AQ_SPOTTED_YELLOWTAIL_HORDE_NOW},
-    {AQ_RUNECLOTH_BANDAGE_HORDE, WORLD_STATE_AQ_RUNECLOTH_BANDAGE_HORDE_NOW},
-};
-
-std::vector<std::pair<WorldStateID, uint32>> aqWorldStateTotalsMap =
-{
-    {WORLD_STATE_AQ_PEACEBLOOM_TOTAL, 96000},
-    {WORLD_STATE_AQ_LEAN_WOLF_STEAK_TOTAL, 10000},
-    {WORLD_STATE_AQ_TIN_BARS_TOTAL, 22000},
-    {WORLD_STATE_AQ_WOOL_BANDAGE_TOTAL, 250000},
-    {WORLD_STATE_AQ_FIREBLOOM_TOTAL, 19000},
-    {WORLD_STATE_AQ_HEAVY_LEATHER_TOTAL, 60000},
-    {WORLD_STATE_AQ_MITHRIL_BARS_TOTAL, 18000},
-    {WORLD_STATE_AQ_MAGEWEAVE_BANDAGE_TOTAL, 250000},
-    {WORLD_STATE_AQ_RUGGED_LEATHER_TOTAL, 60000},
-    {WORLD_STATE_AQ_BAKED_SALMON_TOTAL, 10000},
-    {WORLD_STATE_AQ_LIGHT_LEATHER_TOTAL, 180000},
-    {WORLD_STATE_AQ_LINEN_BANDAGE_TOTAL, 800000},
-    {WORLD_STATE_AQ_MEDIUM_LEATHER_TOTAL, 110000},
-    {WORLD_STATE_AQ_STRANGLEKELP_TOTAL, 33000},
-    {WORLD_STATE_AQ_RAINBOW_FIN_ALBACORE_TOTAL, 14000},
-    {WORLD_STATE_AQ_IRON_BARS_TOTAL, 28000},
-    {WORLD_STATE_AQ_ROAST_RAPTOR_TOTAL, 20000},
-    {WORLD_STATE_AQ_SILK_BANDAGE_TOTAL, 600000},
-    {WORLD_STATE_AQ_THORIUM_BARS_TOTAL, 24000},
-    {WORLD_STATE_AQ_ARTHAS_TEARS_TOTAL, 20000},
-    {WORLD_STATE_AQ_COPPER_BARS_TOTAL, 45000},
-    {WORLD_STATE_AQ_PURPLE_LOTUS_TOTAL, 13000},
-    {WORLD_STATE_AQ_THICK_LEATHER_TOTAL, 40000},
-    {WORLD_STATE_AQ_SPOTTED_YELLOWTAIL_TOTAL, 8500},
-    {WORLD_STATE_AQ_RUNECLOTH_BANDAGE_TOTAL, 200000},
-};
-
 void WorldState::AddWarEffortProgress(AQResources resource, uint32 count)
 {
     std::lock_guard<std::mutex> guard(m_aqData.m_warEffortMutex);
@@ -880,6 +905,7 @@ void WorldState::AddWarEffortProgress(AQResources resource, uint32 count)
     uint32 id = uint32(resource);
     if (id >= aqWorldStateTotalsMap.size())
         id -= 5;
+    ChangeWarEffortGoSpawns(resource);
     if (m_aqData.m_WarEffortCounters[resource] >= aqWorldStateTotalsMap[id].second) // fulfilled this condition - check all
     {
         bool success = true;
@@ -906,6 +932,12 @@ void WorldState::HandleWarEffortPhaseTransition(uint32 newPhase)
         case PHASE_2_TRANSPORTING_RESOURCES:
             m_aqData.m_phase = PHASE_2_TRANSPORTING_RESOURCES;
             m_aqData.m_timer = 5 * DAY * IN_MILLISECONDS;
+            {
+                std::lock_guard<std::mutex> guard(m_aqData.m_warEffortMutex);
+                for (ObjectGuid& guid : m_aqData.m_warEffortWorldstatesPlayers)
+                    if (Player* player = sObjectMgr.GetPlayer(guid))
+                        player->SendUpdateWorldState(WORLD_STATE_AQ_DAYS_LEFT, m_aqData.GetDaysRemaining());
+            }
             break;
         case PHASE_4_10_HOUR_WAR:
             m_aqData.m_phase = PHASE_4_10_HOUR_WAR;
@@ -914,19 +946,6 @@ void WorldState::HandleWarEffortPhaseTransition(uint32 newPhase)
         default: break;
     }
     StartWarEffortEvent();
-}
-
-void WorldState::StopWarEffortEvent()
-{
-    switch (m_aqData.m_phase)
-    {
-        case PHASE_1_GATHERING_RESOURCES: sGameEventMgr.StopEvent(GAME_EVENT_AHN_QIRAJ_EFFORT_PHASE_1); break;
-        case PHASE_2_TRANSPORTING_RESOURCES: sGameEventMgr.StopEvent(GAME_EVENT_AHN_QIRAJ_EFFORT_PHASE_2); break;
-        case PHASE_3_GONG_TIME: sGameEventMgr.StopEvent(GAME_EVENT_AHN_QIRAJ_EFFORT_PHASE_3); break;
-        case PHASE_4_10_HOUR_WAR: sGameEventMgr.StopEvent(GAME_EVENT_AHN_QIRAJ_EFFORT_PHASE_4); break;
-        case PHASE_5_DONE: sGameEventMgr.StopEvent(GAME_EVENT_AHN_QIRAJ_EFFORT_PHASE_5); break;
-        default: break;
-    }
 }
 
 void WorldState::StartWarEffortEvent()
@@ -942,6 +961,266 @@ void WorldState::StartWarEffortEvent()
     }
 }
 
+void WorldState::StopWarEffortEvent()
+{
+    switch (m_aqData.m_phase)
+    {
+        case PHASE_1_GATHERING_RESOURCES: sGameEventMgr.StopEvent(GAME_EVENT_AHN_QIRAJ_EFFORT_PHASE_1); break;
+        case PHASE_2_TRANSPORTING_RESOURCES: sGameEventMgr.StopEvent(GAME_EVENT_AHN_QIRAJ_EFFORT_PHASE_2); break;
+        case PHASE_3_GONG_TIME: sGameEventMgr.StopEvent(GAME_EVENT_AHN_QIRAJ_EFFORT_PHASE_3); break;
+        case PHASE_4_10_HOUR_WAR: sGameEventMgr.StopEvent(GAME_EVENT_AHN_QIRAJ_EFFORT_PHASE_4); break;
+        case PHASE_5_DONE: sGameEventMgr.StopEvent(GAME_EVENT_AHN_QIRAJ_EFFORT_PHASE_5); break;
+        default: break;
+    }
+}
+
+void WorldState::SpawnWarEffortGos()
+{
+    if (m_aqData.m_phase > PHASE_2_TRANSPORTING_RESOURCES)
+        return;
+
+    for (uint32 i = 0; i < RESOURCE_MAX; ++i)
+        ChangeWarEffortGoSpawns(AQResources(i), m_aqData.m_phase == PHASE_2_TRANSPORTING_RESOURCES ? m_aqData.m_phase2Tier : -1);
+}
+
+enum AQResourceTier
+{
+    RESOURCE_TIER_0,
+    RESOURCE_TIER_1,
+    RESOURCE_TIER_2,
+    RESOURCE_TIER_3,
+    RESOURCE_TIER_4,
+    RESOURCE_TIER_5,
+};
+
+struct WarEffortSpawn
+{
+    AQResourceGroup resourceGroup;
+    AQResourceTier resourceTier;
+    uint32 dbGuid;
+    Team team;
+};
+
+enum
+{
+    WAR_EFFORT_DB_GUID_PREFIX = 155000,
+
+    MAP_AZEROTH = 0,
+    MAP_KALIMDOR = 1,
+};
+
+static std::map<std::pair<AQResourceGroup, Team>, std::vector<AQResources>> teamResourcesMap
+{
+    { {RESOURCE_GROUP_SKINNING, ALLIANCE}, {AQ_THICK_LEATHER_ALLY, AQ_LIGHT_LEATHER, AQ_MEDIUM_LEATHER} },
+    { {RESOURCE_GROUP_COOKING, ALLIANCE}, {AQ_RAINBOW_FIN_ALBACORE, AQ_ROAST_RAPTOR, AQ_SPOTTED_YELLOWTAIL_ALLY} },
+    { {RESOURCE_GROUP_HERBS, ALLIANCE}, {AQ_STRANGLEKELP, AQ_ARTHAS_TEARS, AQ_PURPLE_LOTUS_ALLY} },
+    { {RESOURCE_GROUP_BANDAGES, ALLIANCE}, {AQ_LINEN_BANDAGE, AQ_SILK_BANDAGE, AQ_RUNECLOTH_BANDAGE_ALLY} },
+    { {RESOURCE_GROUP_BARS, ALLIANCE}, {AQ_IRON_BAR, AQ_THORIUM_BAR, AQ_COPPER_BAR_ALLY} },
+    { {RESOURCE_GROUP_SKINNING, HORDE}, {AQ_HEAVY_LEATHER, AQ_RUGGED_LEATHER, AQ_THICK_LEATHER_HORDE} },
+    { {RESOURCE_GROUP_COOKING, HORDE}, {AQ_LEAN_WOLF_STEAK, AQ_BAKED_SALMON, AQ_SPOTTED_YELLOWTAIL_HORDE} },
+    { {RESOURCE_GROUP_HERBS, HORDE}, {AQ_PEACEBLOOM, AQ_FIREBLOOM, AQ_PURPLE_LOTUS_HORDE} },
+    { {RESOURCE_GROUP_BANDAGES, HORDE}, {AQ_WOOL_BANDAGE, AQ_MAGEWEAVE_BANDAGE, AQ_RUNECLOTH_BANDAGE_HORDE} },
+    { {RESOURCE_GROUP_BARS, HORDE}, {AQ_TIN_BAR, AQ_MITHRIL_BAR, AQ_COPPER_BAR_HORDE} }
+};
+
+static WarEffortSpawn warEffortSpawns[] =
+{
+    { RESOURCE_GROUP_SKINNING, RESOURCE_TIER_1, WAR_EFFORT_DB_GUID_PREFIX + 10, ALLIANCE},
+    { RESOURCE_GROUP_BANDAGES, RESOURCE_TIER_1, WAR_EFFORT_DB_GUID_PREFIX + 11, ALLIANCE},
+    { RESOURCE_GROUP_BARS,     RESOURCE_TIER_1, WAR_EFFORT_DB_GUID_PREFIX + 12, ALLIANCE},
+    { RESOURCE_GROUP_COOKING,  RESOURCE_TIER_1, WAR_EFFORT_DB_GUID_PREFIX + 13, ALLIANCE},
+    { RESOURCE_GROUP_HERBS,    RESOURCE_TIER_1, WAR_EFFORT_DB_GUID_PREFIX + 14, ALLIANCE},
+    { RESOURCE_GROUP_SKINNING, RESOURCE_TIER_2, WAR_EFFORT_DB_GUID_PREFIX + 20, ALLIANCE},
+    { RESOURCE_GROUP_BANDAGES, RESOURCE_TIER_2, WAR_EFFORT_DB_GUID_PREFIX + 21, ALLIANCE},
+    { RESOURCE_GROUP_BARS,     RESOURCE_TIER_2, WAR_EFFORT_DB_GUID_PREFIX + 22, ALLIANCE},
+    { RESOURCE_GROUP_COOKING,  RESOURCE_TIER_2, WAR_EFFORT_DB_GUID_PREFIX + 23, ALLIANCE},
+    { RESOURCE_GROUP_HERBS,    RESOURCE_TIER_2, WAR_EFFORT_DB_GUID_PREFIX + 24, ALLIANCE},
+    { RESOURCE_GROUP_SKINNING, RESOURCE_TIER_3, WAR_EFFORT_DB_GUID_PREFIX + 30, ALLIANCE},
+    { RESOURCE_GROUP_BANDAGES, RESOURCE_TIER_3, WAR_EFFORT_DB_GUID_PREFIX + 31, ALLIANCE},
+    { RESOURCE_GROUP_BARS,     RESOURCE_TIER_3, WAR_EFFORT_DB_GUID_PREFIX + 32, ALLIANCE},
+    { RESOURCE_GROUP_COOKING,  RESOURCE_TIER_3, WAR_EFFORT_DB_GUID_PREFIX + 33, ALLIANCE},
+    { RESOURCE_GROUP_HERBS,    RESOURCE_TIER_3, WAR_EFFORT_DB_GUID_PREFIX + 34, ALLIANCE},
+    { RESOURCE_GROUP_SKINNING, RESOURCE_TIER_4, WAR_EFFORT_DB_GUID_PREFIX + 40, ALLIANCE},
+    { RESOURCE_GROUP_BANDAGES, RESOURCE_TIER_4, WAR_EFFORT_DB_GUID_PREFIX + 41, ALLIANCE},
+    { RESOURCE_GROUP_BARS,     RESOURCE_TIER_4, WAR_EFFORT_DB_GUID_PREFIX + 42, ALLIANCE},
+    { RESOURCE_GROUP_COOKING,  RESOURCE_TIER_4, WAR_EFFORT_DB_GUID_PREFIX + 43, ALLIANCE},
+    { RESOURCE_GROUP_HERBS,    RESOURCE_TIER_4, WAR_EFFORT_DB_GUID_PREFIX + 44, ALLIANCE},
+    { RESOURCE_GROUP_SKINNING, RESOURCE_TIER_5, WAR_EFFORT_DB_GUID_PREFIX + 50, ALLIANCE},
+    { RESOURCE_GROUP_BANDAGES, RESOURCE_TIER_5, WAR_EFFORT_DB_GUID_PREFIX + 51, ALLIANCE},
+    { RESOURCE_GROUP_BARS,     RESOURCE_TIER_5, WAR_EFFORT_DB_GUID_PREFIX + 52, ALLIANCE},
+    { RESOURCE_GROUP_COOKING,  RESOURCE_TIER_5, WAR_EFFORT_DB_GUID_PREFIX + 53, ALLIANCE},
+    { RESOURCE_GROUP_HERBS,    RESOURCE_TIER_5, WAR_EFFORT_DB_GUID_PREFIX + 54, ALLIANCE},
+    { RESOURCE_GROUP_SKINNING, RESOURCE_TIER_1, WAR_EFFORT_DB_GUID_PREFIX + 510, HORDE},
+    { RESOURCE_GROUP_BANDAGES, RESOURCE_TIER_1, WAR_EFFORT_DB_GUID_PREFIX + 511, HORDE},
+    { RESOURCE_GROUP_BARS,     RESOURCE_TIER_1, WAR_EFFORT_DB_GUID_PREFIX + 512, HORDE},
+    { RESOURCE_GROUP_COOKING,  RESOURCE_TIER_1, WAR_EFFORT_DB_GUID_PREFIX + 513, HORDE},
+    { RESOURCE_GROUP_HERBS,    RESOURCE_TIER_1, WAR_EFFORT_DB_GUID_PREFIX + 514, HORDE},
+    { RESOURCE_GROUP_SKINNING, RESOURCE_TIER_2, WAR_EFFORT_DB_GUID_PREFIX + 520, HORDE},
+    { RESOURCE_GROUP_BANDAGES, RESOURCE_TIER_2, WAR_EFFORT_DB_GUID_PREFIX + 521, HORDE},
+    { RESOURCE_GROUP_BARS,     RESOURCE_TIER_2, WAR_EFFORT_DB_GUID_PREFIX + 522, HORDE},
+    { RESOURCE_GROUP_COOKING,  RESOURCE_TIER_2, WAR_EFFORT_DB_GUID_PREFIX + 523, HORDE},
+    { RESOURCE_GROUP_HERBS,    RESOURCE_TIER_2, WAR_EFFORT_DB_GUID_PREFIX + 524, HORDE},
+    { RESOURCE_GROUP_SKINNING, RESOURCE_TIER_3, WAR_EFFORT_DB_GUID_PREFIX + 530, HORDE},
+    { RESOURCE_GROUP_BANDAGES, RESOURCE_TIER_3, WAR_EFFORT_DB_GUID_PREFIX + 531, HORDE},
+    { RESOURCE_GROUP_BARS,     RESOURCE_TIER_3, WAR_EFFORT_DB_GUID_PREFIX + 532, HORDE},
+    { RESOURCE_GROUP_COOKING,  RESOURCE_TIER_3, WAR_EFFORT_DB_GUID_PREFIX + 533, HORDE},
+    { RESOURCE_GROUP_HERBS,    RESOURCE_TIER_3, WAR_EFFORT_DB_GUID_PREFIX + 534, HORDE},
+    { RESOURCE_GROUP_SKINNING, RESOURCE_TIER_4, WAR_EFFORT_DB_GUID_PREFIX + 540, HORDE},
+    { RESOURCE_GROUP_BANDAGES, RESOURCE_TIER_4, WAR_EFFORT_DB_GUID_PREFIX + 541, HORDE},
+    { RESOURCE_GROUP_BARS,     RESOURCE_TIER_4, WAR_EFFORT_DB_GUID_PREFIX + 542, HORDE},
+    { RESOURCE_GROUP_COOKING,  RESOURCE_TIER_4, WAR_EFFORT_DB_GUID_PREFIX + 543, HORDE},
+    { RESOURCE_GROUP_HERBS,    RESOURCE_TIER_4, WAR_EFFORT_DB_GUID_PREFIX + 544, HORDE},
+    { RESOURCE_GROUP_SKINNING, RESOURCE_TIER_5, WAR_EFFORT_DB_GUID_PREFIX + 550, HORDE},
+    { RESOURCE_GROUP_BANDAGES, RESOURCE_TIER_5, WAR_EFFORT_DB_GUID_PREFIX + 551, HORDE},
+    { RESOURCE_GROUP_BARS,     RESOURCE_TIER_5, WAR_EFFORT_DB_GUID_PREFIX + 552, HORDE},
+    { RESOURCE_GROUP_COOKING,  RESOURCE_TIER_5, WAR_EFFORT_DB_GUID_PREFIX + 553, HORDE},
+    { RESOURCE_GROUP_HERBS,    RESOURCE_TIER_5, WAR_EFFORT_DB_GUID_PREFIX + 554, HORDE},
+};
+
+AQResourceTier GetResourceTier(uint32 counter, uint32 max)
+{
+    if (max * 90 / 100 < counter)
+        return RESOURCE_TIER_5;
+    if (max * 70 / 100 < counter)
+        return RESOURCE_TIER_4;
+    if (max * 50 / 100 < counter)
+        return RESOURCE_TIER_3;
+    if (max * 30 / 100 < counter)
+        return RESOURCE_TIER_2;
+    if (max * 10 / 100 < counter)
+        return RESOURCE_TIER_1;
+    return RESOURCE_TIER_0;
+}
+
+void WorldState::ChangeWarEffortGoSpawns(AQResources resource, int32 forcedTier)
+{
+    auto resourceInfo = GetResourceInfo(resource);
+    auto counterInfo = GetResourceCounterAndMax(resourceInfo.first, resourceInfo.second);
+    auto tier = GetResourceTier(counterInfo.first, counterInfo.second);
+    if (forcedTier != -1)
+        tier = AQResourceTier(uint32(forcedTier));
+    std::vector<uint32> spawnsForSchedule;
+    for (auto& spawn : warEffortSpawns)
+        if (resourceInfo.first == spawn.resourceGroup && tier >= spawn.resourceTier)
+            if (m_aqData.m_spawnedDbGuids.find(spawn.dbGuid) == m_aqData.m_spawnedDbGuids.end())
+                spawnsForSchedule.push_back(spawn.dbGuid);
+    for (uint32 dbGuid : spawnsForSchedule)
+        m_aqData.m_spawnedDbGuids.insert(dbGuid);
+
+    sMapMgr.DoForAllMapsWithMapId(resourceInfo.second == ALLIANCE ? MAP_AZEROTH : MAP_KALIMDOR, [=](Map* map)
+    {
+        for (uint32 dbGuid : spawnsForSchedule)
+        {
+            WorldObject::SpawnGameObject(dbGuid, map);
+        }
+    });
+}
+
+void WorldState::ChangeWarEffortPhase2Tier(uint32 remainingDays)
+{
+    m_aqData.m_phase2Tier = remainingDays;
+    std::set<std::pair<uint32, Team>> guidsForDespawn;
+    for (uint32 dbGuid : m_aqData.m_spawnedDbGuids)
+        for (auto& spawn : warEffortSpawns)
+            if (spawn.dbGuid == dbGuid && spawn.resourceTier > remainingDays)
+                guidsForDespawn.insert({ dbGuid, spawn.team});
+
+    DespawnWarEffortGuids(guidsForDespawn);
+    Save(SAVE_ID_AHN_QIRAJ);
+}
+
+void WorldState::DespawnWarEffortGuids(std::set<std::pair<uint32, Team>>& guids)
+{
+    std::vector<uint32> kalimdor;
+    std::vector<uint32> ek;
+    for (auto& data : guids)
+    {
+        if (data.second == ALLIANCE)
+            ek.push_back(data.first);
+        else
+            kalimdor.push_back(data.first);
+    }
+    if (!ek.empty())
+    {
+        for (uint32 dbGuid : ek)
+            m_aqData.m_spawnedDbGuids.erase(dbGuid);
+
+        sMapMgr.DoForAllMapsWithMapId(MAP_AZEROTH, [=](Map* map)
+        {
+            for (uint32 dbGuid : ek)
+            {
+                if (GameObject* go = map->GetGameObject(dbGuid))
+                    go->AddObjectToRemoveList();
+            }
+        });
+    }
+    if (!kalimdor.empty())
+    {
+        for (uint32 dbGuid : kalimdor)
+            m_aqData.m_spawnedDbGuids.erase(dbGuid);
+
+        sMapMgr.DoForAllMapsWithMapId(MAP_KALIMDOR, [=](Map* map)
+        {
+            for (uint32 dbGuid : kalimdor)
+            {
+                if (GameObject* go = map->GetGameObject(dbGuid))
+                    go->AddObjectToRemoveList();
+            }
+        });
+    }
+}
+
+std::pair<AQResourceGroup, Team> WorldState::GetResourceInfo(AQResources resource)
+{
+    switch (resource)
+    {
+        case AQ_RAINBOW_FIN_ALBACORE: return { RESOURCE_GROUP_COOKING, ALLIANCE};
+        case AQ_ROAST_RAPTOR: return { RESOURCE_GROUP_COOKING, ALLIANCE };
+        case AQ_SPOTTED_YELLOWTAIL_ALLY: return { RESOURCE_GROUP_COOKING, ALLIANCE };
+        case AQ_SPOTTED_YELLOWTAIL_HORDE: return { RESOURCE_GROUP_COOKING, HORDE };
+        case AQ_LEAN_WOLF_STEAK: return { RESOURCE_GROUP_COOKING, HORDE };
+        case AQ_BAKED_SALMON: return { RESOURCE_GROUP_COOKING, HORDE };
+        case AQ_PEACEBLOOM: return { RESOURCE_GROUP_HERBS, HORDE };
+        case AQ_FIREBLOOM: return { RESOURCE_GROUP_HERBS, HORDE };
+        case AQ_PURPLE_LOTUS_HORDE: return { RESOURCE_GROUP_HERBS, HORDE };
+        case AQ_PURPLE_LOTUS_ALLY: return { RESOURCE_GROUP_HERBS, ALLIANCE };
+        case AQ_STRANGLEKELP: return { RESOURCE_GROUP_HERBS, ALLIANCE };
+        case AQ_ARTHAS_TEARS: return { RESOURCE_GROUP_HERBS, ALLIANCE };
+        case AQ_TIN_BAR: return { RESOURCE_GROUP_BARS, HORDE };
+        case AQ_MITHRIL_BAR: return { RESOURCE_GROUP_BARS, HORDE };
+        case AQ_IRON_BAR: return { RESOURCE_GROUP_BARS, ALLIANCE };
+        case AQ_THORIUM_BAR: return { RESOURCE_GROUP_BARS, ALLIANCE };
+        case AQ_COPPER_BAR_ALLY: return { RESOURCE_GROUP_BARS, ALLIANCE };
+        case AQ_COPPER_BAR_HORDE: return { RESOURCE_GROUP_BARS, HORDE };
+        case AQ_HEAVY_LEATHER: return { RESOURCE_GROUP_SKINNING, HORDE };
+        case AQ_RUGGED_LEATHER: return { RESOURCE_GROUP_SKINNING, HORDE };
+        case AQ_THICK_LEATHER_HORDE: return { RESOURCE_GROUP_SKINNING, HORDE };
+        case AQ_THICK_LEATHER_ALLY: return { RESOURCE_GROUP_SKINNING, ALLIANCE };
+        case AQ_LIGHT_LEATHER: return { RESOURCE_GROUP_SKINNING, ALLIANCE };
+        case AQ_MEDIUM_LEATHER: return { RESOURCE_GROUP_SKINNING, ALLIANCE };
+        case AQ_LINEN_BANDAGE: return { RESOURCE_GROUP_BANDAGES, ALLIANCE };
+        case AQ_SILK_BANDAGE: return { RESOURCE_GROUP_BANDAGES, ALLIANCE };
+        case AQ_RUNECLOTH_BANDAGE_ALLY: return { RESOURCE_GROUP_BANDAGES, ALLIANCE };
+        case AQ_RUNECLOTH_BANDAGE_HORDE: return { RESOURCE_GROUP_BANDAGES, HORDE };
+        case AQ_WOOL_BANDAGE: return { RESOURCE_GROUP_BANDAGES, HORDE };
+        case AQ_MAGEWEAVE_BANDAGE: return { RESOURCE_GROUP_BANDAGES, HORDE };
+        default: return { RESOURCE_GROUP_HERBS, HORDE };
+    }
+}
+
+std::pair<uint32, uint32> WorldState::GetResourceCounterAndMax(AQResourceGroup group, Team team)
+{
+    auto& data = teamResourcesMap[{group, team}];
+    uint32 counter = 0;
+    uint32 max = 0;
+    for (auto& resource : data)
+    {
+        counter += m_aqData.m_WarEffortCounters[resource];
+        max += aqWorldStateTotalsMap[resource > RESOURCE_UNIQUE_MAX ? resource - 5 : resource].second;
+    }
+    return {counter, max};
+}
+
 std::string WorldState::GetAQPrintout()
 {
     std::string output = "Phase: " + std::to_string(m_aqData.m_phase) + " Timer: " + std::to_string(m_aqData.m_timer) + "\nValues:";
@@ -955,7 +1234,13 @@ std::string AhnQirajData::GetData()
     std::string output = std::to_string(m_phase) + " " + std::to_string(m_timer);
     for (uint32 value : m_WarEffortCounters)
         output += " " + std::to_string(value);
+    output += " " + std::to_string(m_phase2Tier);
     return output;
+}
+
+uint32 AhnQirajData::GetDaysRemaining() const
+{
+    return uint32(m_timer / (DAY * IN_MILLISECONDS));
 }
 
 // Highlord Kruul
@@ -1560,10 +1845,10 @@ void WorldState::FillInitialWorldStates(ByteBuffer& data, uint32& count, uint32 
                 for (auto itr = aqWorldStateTotalsMap.begin(); itr != aqWorldStateTotalsMap.end(); ++itr)
                     FillInitialWorldStateData(data, count, (*itr).first, (*itr).second);
                 for (auto itr = aqWorldstateMap.begin(); itr != aqWorldstateMap.end(); ++itr)
-                    FillInitialWorldStateData(data, count, m_aqData.m_WarEffortCounters[(*itr).first], (*itr).second);
+                    FillInitialWorldStateData(data, count, (*itr).second, m_aqData.m_WarEffortCounters[(*itr).first]);
             }
             else if (m_aqData.m_phase == PHASE_2_TRANSPORTING_RESOURCES)
-                FillInitialWorldStateData(data, count, WORLD_STATE_AQ_DAYS_LEFT, uint32(m_aqData.m_timer / DAY * IN_MILLISECONDS));
+                FillInitialWorldStateData(data, count, WORLD_STATE_AQ_DAYS_LEFT, m_aqData.GetDaysRemaining());
             break;
         }
         case ZONEID_ISLE_OF_QUEL_DANAS:

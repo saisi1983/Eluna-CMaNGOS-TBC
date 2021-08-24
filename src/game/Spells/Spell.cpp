@@ -376,7 +376,7 @@ Spell::Spell(WorldObject* caster, SpellEntry const* info, uint32 triggeredFlags,
     m_powerCost = 0;                                        // setup to correct value in Spell::prepare, don't must be used before.
     m_casttime = 0;                                         // setup to correct value in Spell::prepare, don't must be used before.
     m_timer = 0;                                            // will set to cast time in prepare
-    m_creationTime = m_caster->GetMap()->GetCurrentMSTime();
+    m_creationTime = m_trueCaster->GetMap()->GetCurrentMSTime();
     m_updated = false;
     m_duration = 0;
     m_maxRange = 0.f;
@@ -781,7 +781,7 @@ void Spell::AddUnitTarget(Unit* target, uint8 effectMask, CheckException excepti
     targetInfo.diminishGroup = DIMINISHING_NONE;
 
     // Calculate hit result
-    targetInfo.missCondition = (m_ignoreHitResult ? SPELL_MISS_NONE : m_caster->SpellHitResult(target, m_spellInfo, targetInfo.effectMask, m_reflectable, false, &targetInfo.heartbeatResistChance));
+    targetInfo.missCondition = m_ignoreHitResult ? SPELL_MISS_NONE : m_caster->SpellHitResult(target, m_spellInfo, targetInfo.effectMask, m_reflectable, false, &targetInfo.heartbeatResistChance);
 
     // spell fly from visual cast object
     WorldObject* affectiveObject = GetAffectiveCasterObject();
@@ -826,7 +826,7 @@ void Spell::AddUnitTarget(Unit* target, uint8 effectMask, CheckException excepti
 
             targetInfo.effectHitMask = notImmunedMask;
             // Calculate reflected spell result on caster
-            targetInfo.reflectResult = m_caster->SpellHitResult(m_caster, m_spellInfo, targetInfo.effectMask, m_reflectable, true, &targetInfo.heartbeatResistChance);
+            targetInfo.reflectResult =  m_caster->SpellHitResult(m_caster, m_spellInfo, targetInfo.effectMask, m_reflectable, true, &targetInfo.heartbeatResistChance);
             // Caster reflects back spell which was already reflected by victim
             if (targetInfo.reflectResult == SPELL_MISS_REFLECT)
                 // Full circle: it's impossible to reflect further, "Immune" shows up
@@ -1480,7 +1480,7 @@ void Spell::InitializeDamageMultipliers()
         uint32 EffectChainTarget = m_spellInfo->EffectChainTarget[i];
         if (Unit* realCaster = GetAffectiveCaster())
             if (Player* modOwner = realCaster->GetSpellModOwner())
-                modOwner->ApplySpellMod(m_spellInfo->Id, SPELLMOD_JUMP_TARGETS, EffectChainTarget, this);
+                modOwner->ApplySpellMod(m_spellInfo->Id, SPELLMOD_JUMP_TARGETS, EffectChainTarget);
 
         m_damageMultipliers[i] = 1.0f;
         if ((m_spellInfo->EffectImplicitTargetA[i] == TARGET_UNIT_ENEMY || m_spellInfo->EffectImplicitTargetA[i] == TARGET_UNIT_FRIEND_CHAIN_HEAL) && (EffectChainTarget > 1))
@@ -2876,7 +2876,10 @@ void Spell::Prepare()
 
     // calculate cast time (calculated after first CheckCast check to prevent charge counting for first CheckCast fail)
     if (!m_ignoreCastTime)
-        m_casttime = GetSpellCastTime(m_spellInfo, m_caster, this);
+    {
+        SpellModRAII spellModController(this, m_caster->GetSpellModOwner(), false, true);
+        m_casttime = GetSpellCastTime(m_spellInfo, m_trueCaster, this, true);
+    }
 
     // set timer base at cast time
     ReSetTimer();
@@ -2937,6 +2940,10 @@ void Spell::cancel()
     // channeled spells don't display interrupted message even if they are interrupted, possible other cases with no "Interrupted" message
     bool sendInterrupt = !(IsChanneledSpell(m_spellInfo) || m_autoRepeat);
 
+    if (Player* player = m_caster->GetSpellModOwner()) // reset casting time mods
+        if (player->GetSpellModSpell() != this && !m_usedAuraCharges.empty())
+            player->ResetSpellModsDueToCanceledSpell(m_usedAuraCharges);
+
     m_autoRepeat = false;
     switch (m_spellState)
     {
@@ -2982,6 +2989,7 @@ void Spell::cancel()
 void Spell::cast(bool skipCheck)
 {
     SetExecutedCurrently(true);
+    SpellModRAII spellModController(this, m_caster->GetSpellModOwner());
 
     if (!m_caster->CheckAndIncreaseCastCounter())
     {
@@ -3097,6 +3105,8 @@ void Spell::cast(bool skipCheck)
         return;
     }
 
+    spellModController.SetSuccess();
+
     if (Unit* unitCaster = dynamic_cast<Unit*>(m_trueCaster))
         if (m_spellInfo->HasAttribute(SPELL_ATTR_EX_DISMISS_PET))
             if (Pet* pet = unitCaster->GetPet())
@@ -3165,6 +3175,8 @@ void Spell::handle_immediate()
 
 uint64 Spell::handle_delayed(uint64 t_offset)
 {
+    SpellModRAII spellModController(this, m_caster->GetSpellModOwner(), true);
+
     uint64 next_time = 0;
 
     if (!m_destTargetInfo.processed)
@@ -3537,15 +3549,6 @@ void Spell::finish(bool ok)
 
     if (m_spellState == SPELL_STATE_FINISHED)
         return;
-
-    // remove/restore spell mods before m_spellState update
-    if (Player* modOwner = m_caster->GetSpellModOwner())
-    {
-        if (ok || (m_spellState > uint32(SPELL_STATE_CASTING))) // fail after start channeling or throw to target not affect spell mods
-            modOwner->RemoveSpellMods(this);
-        else
-            modOwner->ResetSpellModsDueToCanceledSpell(this);
-    }
 
     bool channeledChannel = m_spellState == SPELL_STATE_CHANNELING;
 
@@ -4697,6 +4700,14 @@ SpellCastResult Spell::CheckCast(bool strict)
             }
 
             if ((m_targets.m_targetMask == TARGET_FLAG_SELF || m_caster == target) && m_spellInfo->HasAttribute(SPELL_ATTR_EX_CANT_TARGET_SELF))
+            {
+                if (IsOnlySelfTargeting(m_spellInfo))
+                    sLog.outCustomLog("Spell ID %u cast at self explicitly even though it has SPELL_ATTR_EX_CANT_TARGET_SELF");
+
+                return SPELL_FAILED_BAD_TARGETS;
+            }
+
+            if (!selfTargeting && target->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE_2))
                 return SPELL_FAILED_BAD_TARGETS;
 
             // check creature type
@@ -6082,7 +6093,7 @@ std::pair<float, float> Spell::GetMinMaxRange(bool strict)
                 maxRange *= ranged->GetProto()->RangedModRange * 0.01f;
 
         if (Player * modOwner = caster->GetSpellModOwner())
-            modOwner->ApplySpellMod(m_spellInfo->Id, SPELLMOD_RANGE, maxRange, this);
+            modOwner->ApplySpellMod(m_spellInfo->Id, SPELLMOD_RANGE, maxRange);
     }
 
     maxRange += rangeMod;
@@ -6232,7 +6243,7 @@ uint32 Spell::CalculatePowerCost(SpellEntry const* spellInfo, Unit* caster, Spel
     // Apply cost mod by spell
     if (spell)
         if (Player* modOwner = caster->GetSpellModOwner())
-            modOwner->ApplySpellMod(spellInfo->Id, SPELLMOD_COST, powerCost, spell, finalUse);
+            modOwner->ApplySpellMod(spellInfo->Id, SPELLMOD_COST, powerCost, finalUse);
 
     if (spellInfo->HasAttribute(SPELL_ATTR_LEVEL_DAMAGE_CALCULATION))
     {
@@ -6685,7 +6696,7 @@ void Spell::Delayed()
 
     // check resist chance
     int32 resistChance = 100;                               // must be initialized to 100 for percent modifiers
-    ((Player*)m_caster)->ApplySpellMod(m_spellInfo->Id, SPELLMOD_NOT_LOSE_CASTING_TIME, resistChance, this);
+    ((Player*)m_caster)->ApplySpellMod(m_spellInfo->Id, SPELLMOD_NOT_LOSE_CASTING_TIME, resistChance);
     resistChance += m_caster->GetTotalAuraModifier(SPELL_AURA_RESIST_PUSHBACK) - 100;
     if (roll_chance_i(resistChance))
         return;
@@ -6716,7 +6727,7 @@ void Spell::DelayedChannel()
 
     // check resist chance
     int32 resistChance = 100;                               // must be initialized to 100 for percent modifiers
-    ((Player*)m_caster)->ApplySpellMod(m_spellInfo->Id, SPELLMOD_NOT_LOSE_CASTING_TIME, resistChance, this);
+    ((Player*)m_caster)->ApplySpellMod(m_spellInfo->Id, SPELLMOD_NOT_LOSE_CASTING_TIME, resistChance);
     resistChance += m_caster->GetTotalAuraModifier(SPELL_AURA_RESIST_PUSHBACK) - 100;
     if (roll_chance_i(resistChance))
         return;
@@ -6932,6 +6943,9 @@ bool Spell::CheckTarget(Unit* target, SpellEffectIndex eff, bool targetB, CheckE
 					return false;
         }
     }
+
+    if (targetType != TARGET_UNIT_CASTER && targetType != TARGET_UNIT_CASTER_PET && target->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE_2))
+        return false;
 
     if (target->IsCreature() && target != m_targets.getUnitTarget() && info.enumerator == TARGET_ENUMERATOR_CHAIN && info.filter == TARGET_HARMFUL) // TODO: Mother Shahraz beams can target totems
         if (static_cast<Creature*>(target)->IsCritter())
@@ -7476,9 +7490,9 @@ void Spell::GetSpellRangeAndRadius(SpellEffectIndex effIndex, float& radius, boo
     {
         if (Player* modOwner = realCaster->GetSpellModOwner())
         {
-            modOwner->ApplySpellMod(m_spellInfo->Id, SPELLMOD_RADIUS, radius, this);
+            modOwner->ApplySpellMod(m_spellInfo->Id, SPELLMOD_RADIUS, radius);
             if (!targetB)
-                modOwner->ApplySpellMod(m_spellInfo->Id, SPELLMOD_JUMP_TARGETS, EffectChainTarget, this);
+                modOwner->ApplySpellMod(m_spellInfo->Id, SPELLMOD_JUMP_TARGETS, EffectChainTarget);
         }
     }
 
@@ -7647,7 +7661,7 @@ void Spell::FilterTargetMap(UnitList& filterUnitList, SpellTargetFilterScheme sc
 
             while (chainTargetCount && next != filterUnitList.end())
             {
-                if (!prev->IsWithinDist(*next, m_jumpRadius))
+                if (prev->GetDistance(*next, true, DIST_CALC_NONE) > m_jumpRadius * m_jumpRadius)
                     break;
 
                 if (!prev->IsWithinLOSInMap(*next, true))
@@ -7675,14 +7689,15 @@ void Spell::FilterTargetMap(UnitList& filterUnitList, SpellTargetFilterScheme sc
             newList.push_back(unitTarget);
             bool isInGroup = m_caster->IsInGroup(unitTarget);
             filterUnitList.pop_front();
-            filterUnitList.sort(LowestHPNearestOrder(unitTarget, DIST_CALC_COMBAT_REACH));
+            filterUnitList.sort(LowestHPNearestOrder(unitTarget));
             Unit* prev = unitTarget;
             UnitList::iterator next = filterUnitList.begin();
             chainTargetCount -= 1; // unit target is one
 
             while (chainTargetCount && next != filterUnitList.end())
             {
-                if (!prev->IsWithinCombatDist(*next, m_jumpRadius))
+                // since we do not iterate through closest but through HP, we must check all units
+                if (prev->GetDistance(*next, true, DIST_CALC_NONE) > m_jumpRadius * m_jumpRadius)
                 {
                     ++next;
                     continue;
@@ -7703,7 +7718,7 @@ void Spell::FilterTargetMap(UnitList& filterUnitList, SpellTargetFilterScheme sc
                 prev = *next;
                 newList.push_back(prev);
                 filterUnitList.erase(next);
-                filterUnitList.sort(LowestHPNearestOrder(prev, DIST_CALC_COMBAT_REACH));
+                filterUnitList.sort(LowestHPNearestOrder(prev));
                 next = filterUnitList.begin();
 
                 --chainTargetCount;
@@ -8260,4 +8275,25 @@ void Spell::OnSummon(Creature* summon)
 {
     if (SpellScript* script = GetSpellScript())
         return script->OnSummon(this, summon);
+}
+
+SpellModRAII::SpellModRAII(Spell* spell, Player* modOwner, bool success, bool onlySave) : m_spell(spell), m_modOwner(modOwner), m_success(success), m_onlySave(onlySave)
+{
+    if (m_modOwner && !modOwner->GetSpellModSpell()) // only if first spell in depth
+        m_modOwner->SetSpellModSpell(spell);
+}
+
+SpellModRAII::~SpellModRAII()
+{
+    if (m_modOwner && m_modOwner->GetSpellModSpell() == m_spell) // only if this spell is toplevel
+    {
+        if (!m_onlySave)
+        {
+            if (m_success)
+                m_modOwner->RemoveSpellMods(m_spell->m_usedAuraCharges);
+            else
+                m_modOwner->ResetSpellModsDueToCanceledSpell(m_spell->m_usedAuraCharges);
+        }
+        m_modOwner->SetSpellModSpell(nullptr);
+    }
 }

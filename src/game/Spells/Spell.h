@@ -276,6 +276,19 @@ class SpellLog
         uint32 m_currentEffect;
 };
 
+class SpellModRAII
+{
+    public:
+        SpellModRAII(Spell* spell, Player* modOwner, bool success = false, bool onlySave = false);
+        void SetSuccess() { m_success = true; }
+        ~SpellModRAII();
+    private:
+        Spell* m_spell;
+        Player* m_modOwner;
+        bool m_success;
+        bool m_onlySave; // casting time
+};
+
 class Spell
 {
         friend struct MaNGOS::SpellNotifierPlayer;
@@ -426,7 +439,7 @@ class Spell
         bool CheckSpellCancelsConfuse(uint32& param1) const;
 
         int32 CalculateSpellEffectValue(SpellEffectIndex i, Unit* target, bool maximum = false, bool finalUse = true)
-        { return m_trueCaster->CalculateSpellEffectValue(target, m_spellInfo, i, &m_currentBasePoints[i], maximum, finalUse); }
+        { return m_caster->CalculateSpellEffectValue(target, m_spellInfo, i, &m_currentBasePoints[i], maximum, finalUse); }
         int32 CalculateSpellEffectDamage(Unit* unitTarget, int32 damage);
         static uint32 CalculatePowerCost(SpellEntry const* spellInfo, Unit* caster, Spell* spell = nullptr, Item* castItem = nullptr, bool finalUse = false);
 
@@ -583,6 +596,9 @@ class Spell
 
         void CleanupTargetList();
         void ClearCastItem();
+
+        // spell mods
+        std::set<SpellModifierPair> m_usedAuraCharges;
 
         static void SelectMountByAreaAndSkill(Unit* target, SpellEntry const* parentSpell, uint32 spellId75, uint32 spellId150, uint32 spellId225, uint32 spellId300, uint32 spellIdSpecial);
 
@@ -996,7 +1012,7 @@ namespace MaNGOS
             }
         }
 
-        template<class T> inline void Visit(GridRefManager<T>&  m)
+        template<class T> inline void Visit(GridRefManager<T>& m)
         {
             if (!i_originalCaster || !i_castingObject)
                 return;
@@ -1060,7 +1076,10 @@ namespace MaNGOS
                     case PUSH_SRC_CENTER:
                     case PUSH_DEST_CENTER:
                     case PUSH_TARGET_CENTER:
-                        if (itr->getSource()->GetDistance(i_centerX, i_centerY, i_centerZ, DIST_CALC_COMBAT_REACH) <= i_radius)
+                        float radius = i_radius;
+                        if (i_originalCaster->IsControlledByPlayer() && !itr->getSource()->IsControlledByPlayer())
+                            radius += itr->getSource()->GetCombatReach();
+                        if (itr->getSource()->GetDistance(i_centerX, i_centerY, i_centerZ, DIST_CALC_NONE) <= radius * radius)
                             i_data.push_back(itr->getSource());
                         break;
                 }

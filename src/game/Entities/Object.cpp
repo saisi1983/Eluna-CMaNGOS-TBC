@@ -2836,7 +2836,7 @@ int32 WorldObject::CalculateSpellEffectValue(Unit const* target, SpellEntry cons
     int32 baseDice = int32(spellProto->EffectBaseDice[effect_index]);
     float basePointsPerLevel = spellProto->EffectRealPointsPerLevel[effect_index];
     float randomPointsPerLevel = spellProto->EffectDicePerLevel[effect_index];
-    int32 basePoints = effBasePoints
+    float basePoints = effBasePoints
         ? *effBasePoints - baseDice
         : spellProto->EffectBasePoints[effect_index];
 
@@ -2850,7 +2850,7 @@ int32 WorldObject::CalculateSpellEffectValue(Unit const* target, SpellEntry cons
         else if (level < (int32)spellProto->baseLevel)
             level = (int32)spellProto->baseLevel;
         level -= (int32)spellProto->spellLevel;
-        basePoints += int32(level * basePointsPerLevel);
+        basePoints += level * basePointsPerLevel;
         randomPoints += int32(level * randomPointsPerLevel);
     }
 
@@ -2875,7 +2875,7 @@ int32 WorldObject::CalculateSpellEffectValue(Unit const* target, SpellEntry cons
         }
     }
 
-    int32 value = basePoints;
+    float value = basePoints;
 
     // random damage
     if (comboDamage != 0.0f && unitPlayer && target && (target->GetObjectGuid() == unitPlayer->GetComboTargetGuid() || IsOnlySelfTargeting(spellProto)))
@@ -2885,18 +2885,18 @@ int32 WorldObject::CalculateSpellEffectValue(Unit const* target, SpellEntry cons
     {
         if (Player * modOwner = unitCaster->GetSpellModOwner())
         {
-            modOwner->ApplySpellMod(spellProto->Id, SPELLMOD_ALL_EFFECTS, value, nullptr, finalUse);
+            modOwner->ApplySpellMod(spellProto->Id, SPELLMOD_ALL_EFFECTS, value, finalUse);
 
             switch (effect_index)
             {
                 case EFFECT_INDEX_0:
-                    modOwner->ApplySpellMod(spellProto->Id, SPELLMOD_EFFECT1, value, nullptr, finalUse);
+                    modOwner->ApplySpellMod(spellProto->Id, SPELLMOD_EFFECT1, value, finalUse);
                     break;
                 case EFFECT_INDEX_1:
-                    modOwner->ApplySpellMod(spellProto->Id, SPELLMOD_EFFECT2, value, nullptr, finalUse);
+                    modOwner->ApplySpellMod(spellProto->Id, SPELLMOD_EFFECT2, value, finalUse);
                     break;
                 case EFFECT_INDEX_2:
-                    modOwner->ApplySpellMod(spellProto->Id, SPELLMOD_EFFECT3, value, nullptr, finalUse);
+                    modOwner->ApplySpellMod(spellProto->Id, SPELLMOD_EFFECT3, value, finalUse);
                     break;
             }
         }

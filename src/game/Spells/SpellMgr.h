@@ -83,7 +83,7 @@ SpellSpecific GetSpellSpecific(uint32 spellId);
 
 // Different spell properties
 inline float GetSpellRadius(SpellRadiusEntry const* radius) { return (radius ? radius->Radius : 0); }
-uint32 GetSpellCastTime(SpellEntry const* spellInfo, WorldObject* caster, Spell* spell = nullptr);
+uint32 GetSpellCastTime(SpellEntry const* spellInfo, WorldObject* caster, Spell* spell = nullptr, bool consume = false);
 uint32 GetSpellCastTimeForBonus(SpellEntry const* spellProto, DamageEffectType damagetype);
 float CalculateDefaultCoefficient(SpellEntry const* spellProto, DamageEffectType const damagetype);
 inline float GetSpellMinRange(SpellRangeEntry const* range) { return (range ? range->minRange : 0); }
@@ -640,6 +640,7 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 28902:         // Bloodlust
         case 29406:         // Shadowform
         case 29526:         // Hate to Zero (Hate to Zero)
+        case 30074:         // Toxic Gas
         case 30205:         // Shadow Cage - Magtheridon
         case 30982:         // Crippling Poison
         case 31332:         // Dire Wolf Visual

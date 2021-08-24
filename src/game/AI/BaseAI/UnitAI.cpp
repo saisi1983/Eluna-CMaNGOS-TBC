@@ -360,14 +360,14 @@ void UnitAI::OnSpellCastStateChange(Spell const* spell, bool state, WorldObject*
     }
     else
     {
-        std::set<uint32> spellIdsForTurning = { 31306, 33813, 38739 };
+        std::set<uint32> spellIdsForTurning = { 31306, 33813, 38739, 44811, 46292 };
         if (!spell->GetCastTime() && spellIdsForTurning.find(spellInfo->Id) != spellIdsForTurning.end())
         {
             HandleDelayedInstantAnimation(spellInfo);
         }
         else
         {
-            if (m_unit->GetVictim() && !GetCombatScriptStatus())
+            if (m_unit->GetVictim() && !IsTargetingRestricted())
                 m_unit->SetTarget(m_unit->GetVictim());
             else
                 m_unit->SetTarget(nullptr);
@@ -427,7 +427,7 @@ void UnitAI::OnChannelStateChange(Spell const* spell, bool state, WorldObject* t
     }
     else
     {
-        if (m_unit->GetVictim() && !GetCombatScriptStatus())
+        if (m_unit->GetVictim() && !IsTargetingRestricted())
             m_unit->SetTarget(m_unit->GetVictim());
         else
             m_unit->SetTarget(nullptr);

@@ -2761,13 +2761,6 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                     static_cast<Player*>(m_caster)->RemoveSomeCooldown(cdCheck);
                     return;
                 }
-                case 30610:                                 // Wrath of the Titans Stacker
-                {
-                    uint32 count = m_caster->GetAuraCount(30554);
-                    for (uint32 i = count; i < 5; ++i)
-                        m_caster->CastSpell(nullptr, 30554, TRIGGERED_OLD_TRIGGERED);
-                    return;
-                }
                 case 38194:                                 // Blink
                 {
                     // Blink
@@ -3435,12 +3428,17 @@ void Spell::EffectTriggerMissileSpell(SpellEffectIndex effect_idx)
 
     SpellCastTargets targets;
     if (unitTarget)
-        m_targets.setUnitTarget(unitTarget);
+    {
+        if (spellInfo->Targets & TARGET_FLAG_DEST_LOCATION)
+            targets.setDestination(unitTarget->GetPositionX(), unitTarget->GetPositionY(), unitTarget->GetPositionZ());
+        else
+            targets.setUnitTarget(unitTarget);
+    }
     else if (gameObjTarget)
-        m_targets.setGOTarget(gameObjTarget);
-    else
-        m_targets.setDestination(m_targets.m_destPos.x, m_targets.m_destPos.y, m_targets.m_destPos.z);
-    m_caster->CastSpell(m_targets, spellInfo, TRIGGERED_OLD_TRIGGERED, m_CastItem, nullptr, m_originalCasterGUID, m_spellInfo);
+        targets.setGOTarget(gameObjTarget);
+    else if (spellInfo->EffectImplicitTargetA[0] != TARGET_LOCATION_CASTER_DEST) // TODO: Add a proper filling mechanism
+        targets.setDestination(m_targets.m_destPos.x, m_targets.m_destPos.y, m_targets.m_destPos.z);
+    m_caster->CastSpell(targets, spellInfo, TRIGGERED_OLD_TRIGGERED, m_CastItem, nullptr, m_originalCasterGUID, m_spellInfo);
 }
 
 void Spell::EffectTeleportUnits(SpellEffectIndex eff_idx)   // TODO - Use target settings for this effect!
@@ -3898,7 +3896,8 @@ void Spell::EffectHealthLeech(SpellEffectIndex eff_idx)
     if (m_caster->IsAlive())
     {
         heal = m_caster->SpellHealingBonusTaken(m_caster, m_spellInfo, heal, HEAL);
-
+        // TODO: at hit need to schedule a (delayed) heal effect execution on caster
+        // order of packets for death coil - start, go, delay, dmg log, delay, heal log
         m_caster->DealHeal(m_caster, heal, m_spellInfo);
     }
 }
@@ -4032,7 +4031,7 @@ void Spell::EffectPersistentAA(SpellEffectIndex eff_idx)
     float radius = GetSpellRadius(sSpellRadiusStore.LookupEntry(m_spellInfo->EffectRadiusIndex[eff_idx]));
 
     if (Player* modOwner = caster->GetSpellModOwner())
-        modOwner->ApplySpellMod(m_spellInfo->Id, SPELLMOD_RADIUS, radius, this);
+        modOwner->ApplySpellMod(m_spellInfo->Id, SPELLMOD_RADIUS, radius);
 
     SpellTarget target = SpellTarget(m_spellInfo->EffectImplicitTargetB[eff_idx] ? m_spellInfo->EffectImplicitTargetB[eff_idx] : m_spellInfo->EffectImplicitTargetA[eff_idx]);
 
@@ -4907,7 +4906,7 @@ void Spell::ProcessDispelList(std::list <std::pair<SpellAuraHolder*, uint32> >& 
             if (Unit* caster = holder->GetCaster())
             {
                 if (Player* modOwner = caster->GetSpellModOwner())
-                    modOwner->ApplySpellMod(spellInfo->Id, SPELLMOD_RESIST_DISPEL_CHANCE, miss_chance, this);
+                    modOwner->ApplySpellMod(spellInfo->Id, SPELLMOD_RESIST_DISPEL_CHANCE, miss_chance);
                 miss_chance += caster->GetTotalAuraModifier(SPELL_AURA_MOD_DISPEL_RESIST);
             }
             // Try dispel
