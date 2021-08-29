@@ -62,7 +62,7 @@ enum CreatureExtraFlags
     CREATURE_EXTRA_FLAG_FORCE_ATTACKING_CAPABILITY = 0x00080000,   // 524288 SetForceAttackingCapability(true); for nonattackable, nontargetable creatures that should be able to attack nontheless
     CREATURE_EXTRA_FLAG_DYNGUID                = 0x00100000,       // 1048576 Temporary transition flag - spawns of this entry use dynguid system
     CREATURE_EXTRA_FLAG_COUNT_SPAWNS           = 0x00200000,       // 2097152 count creature spawns in Map*
-    // CREATURE_EXTRA_FLAG_REUSE               = 0x00400000,       // 4194304 - reuse
+    CREATURE_EXTRA_FLAG_IGNORE_FEIGN_DEATH     = 0x00400000,       // 4194304 Ignores Feign Death
     CREATURE_EXTRA_FLAG_DUAL_WIELD_FORCED      = 0x00800000,       // 8388606 creature is alwyas dual wielding (even if unarmed)
     // CREATURE_EXTRA_FLAG_REUSE               = 0x01000000,       // 16777216
 };
@@ -646,7 +646,7 @@ class Creature : public Unit
         void SetWalk(bool enable, bool asDefault = true);
 
         // TODO: Research mob shield block values
-        uint32 GetShieldBlockValue() const override { return (getLevel() / 2 + uint32(GetStat(STAT_STRENGTH) / 20)); }
+        uint32 GetShieldBlockValue() const override { return (GetLevel() / 2 + uint32(GetStat(STAT_STRENGTH) / 20)); }
 
         bool HasSpell(uint32 spellID) const override;
         void UpdateSpell(int32 index, int32 newSpellId) { m_spells[index] = newSpellId; }
@@ -824,6 +824,9 @@ class Creature : public Unit
         bool CanAggro() const { return m_canAggro; }
         void SetCanAggro(bool canAggro) { m_canAggro = canAggro; }
 
+        bool CanCheckForHelp() const override { return m_checkForHelp; }
+        void SetCanCheckForHelp(bool state) { m_checkForHelp = state; }
+
         void SetNoRewards() { m_noXP = true; m_noLoot = true; m_noReputation = true; }
         bool IsNoXp() { return m_noXP; }
         void SetNoXP(bool state) { m_noXP = state; }
@@ -831,6 +834,8 @@ class Creature : public Unit
         void SetNoLoot(bool state) { m_noLoot = state; }
         bool IsNoReputation() { return m_noReputation; }
         void SetNoReputation(bool state) { m_noReputation = state; }
+        bool IsIgnoringFeignDeath() const { return m_ignoringFeignDeath; }
+        void SetIgnoreFeignDeath(bool state) { m_ignoringFeignDeath = state; }
 
         virtual void AddCooldown(SpellEntry const& spellEntry, ItemPrototype const* itemProto = nullptr, bool permanent = false, uint32 forcedDuration = 0) override;
 
@@ -871,6 +876,7 @@ class Creature : public Unit
         uint32 m_corpseDelay;                               // (secs) delay between death and corpse disappearance
         TimePoint m_pickpocketRestockTime;                  // (msecs) time point of pickpocket restock
         bool m_canAggro;                                    // controls response of creature to attacks
+        bool m_checkForHelp;                                // controls checkforhelp in ai
         float m_respawnradius;
 
         CreatureSubtype m_subtype;                          // set in Creatures subclasses for fast it detect without dynamic_cast use
@@ -903,6 +909,7 @@ class Creature : public Unit
         bool m_noXP;
         bool m_noLoot;
         bool m_noReputation;
+        bool m_ignoringFeignDeath;
 
         // Script logic
         bool m_countSpawns;

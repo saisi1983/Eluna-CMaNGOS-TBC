@@ -547,8 +547,12 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 3284:          // Violent Shield
         case 3417:          // Thrash
         case 3418:          // Improved Blocking
+        case 3509:          // Sloth Passive
+        case 3512:          // Sludge Passive
+        case 3582:          // Torch Burst
         case 3616:          // Poison Proc
         case 3637:          // Improved Blocking III
+        case 4148:          // Growl of Fortitude
         case 5111:          // Living Flame Passive
         case 5301:          // Defensive State (DND)
         case 5680:          // Torch Burn
@@ -556,11 +560,19 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 6498:          // Feed Sarilus Passive
         case 6718:          // Phasing Stealth
         case 6752:          // Weak Poison Proc
+        case 6820:          // Corrupted Agility Passive
+        case 6821:          // Corrupted Strength Passive
+        case 6822:          // Corrupted Stamina Passive
+        case 6823:          // Corrupted Intellect Passive
+        case 6923:          // Growl of Fortitude Proc
         case 6947:          // Curse of the Bleakheart Proc
+        case 6961:          // Knockdown Proc
         case 7056:          // Pacified
         case 7090:          // Bear Form (Shapeshift)
+        case 7095:          // Knockdown Proc
         case 7165:          // Battle Stance (Rank 1)
         case 7276:          // Poison Proc
+        case 7999:          // Soot Covering
         case 8247:          // Wandering Plague
         case 8279:          // Stealth Detection
         case 8393:          // Barbs
@@ -570,6 +582,8 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 9205:          // Hate to Zero (Hate to Zero)
         case 9347:          // Mortal Strike
         case 9460:          // Corrosive Ooze
+        case 9464:          // Barbs
+        case 9769:          // Radiation
         case 9941:          // Spell Reflection
         case 10022:         // Deadly Poison
         case 10072:         // Splintered Obsidian
@@ -596,6 +610,8 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 13616:         // Wracking Pains Proc
         case 13767:         // Hate to Zero (Hate to Zero)
         case 13787:         // Demon Armor
+        case 14111:         // Bloodpetal Poison Proc
+        case 14133:         // Muculent Fever Proc
         case 14178:         // Sticky Tar
         case 15088:         // Flurry
         case 15097:         // Enrage
@@ -626,12 +642,15 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 20514:         // Ruul Snowhoof Shapechange (DND)
         case 21061:         // Putrid Breath
         case 21857:         // Lava Shield
+        case 21862:         // Radiation
         case 22128:         // Thorns
         case 22578:         // Glowy (Black)
         case 22735:         // Spirit of Runn Tum
         case 22781:         // Thornling
         case 22788:         // Grow
         case 22856:         // Ice Lock (Guard Slip'kik ice trap in Dire Maul)
+        case 23255:         // Deep Wounds
+        case 24313:         // Shade Visual
         case 25592:         // Hate to Zero (Hate to Zero)
         case 26341:         // Saurfang's Rage
         case 27578:         // Battle Shout
@@ -646,6 +665,7 @@ inline bool IsSpellRemovedOnEvade(SpellEntry const* spellInfo)
         case 31332:         // Dire Wolf Visual
         case 31690:         // Putrid Mushroom
         case 31722:         // Immolation
+        case 31757:         // Pulverize
         case 31792:         // Bear Form (Shapeshift)
         case 32007:         // Mo'arg Engineer Transform Visual
         case 32064:         // Battle Shout
@@ -1693,10 +1713,7 @@ inline uint32 GetAffectedTargets(SpellEntry const* spellInfo, WorldObject* caste
                 case 39342:                                 // Karazhan - Chess, Medivh CHEAT: Hand of Medivh, Target Alliance
                 case 40834:                                 // Agonizing Flames (BT, Illidan Stormrage)
                 case 41537:                                 // Summon Enslaved Soul (BT, Reliquary of Souls)
-                case 44869:                                 // Spectral Blast (SWP, Kalecgos)
                 case 45391:                                 // Summon Demonic Vapor (SWP, Felmyst)
-                case 45785:                                 // Sinister Reflection Clone (SWP, Kil'jaeden)
-                case 45892:                                 // Sinister Reflection (SWP, Kil'jaeden)
                 case 45976:                                 // Open Portal (SWP, M'uru)
                 case 46372:                                 // Ice Spear Target Picker (Slave Pens, Ahune)
                     return 1;
@@ -1711,12 +1728,9 @@ inline uint32 GetAffectedTargets(SpellEntry const* spellInfo, WorldObject* caste
                 case 41303:                                 // Soul Drain (BT, Reliquary of Souls)
                 case 41376:                                 // Spite (BT, Reliquary of Souls)
                     return 3;
-                case 46650:                                 // Open Brutallus Back Door (SWP, Felmyst)
-                    return 4;
                 case 29232:                                 // Fungal Bloom (Loatheb)
                 case 40243:                                 // Crushing Shadows (BT, Teron Gorefiend)
                 case 42005:                                 // Bloodboil (BT, Gurtogg Bloodboil)
-                case 45641:                                 // Fire Bloom (SWP, Kil'jaeden)
                     return 5;
                 case 25676:                                 // Drain Mana (correct number has to be researched)
                 case 25754:
@@ -1727,8 +1741,6 @@ inline uint32 GetAffectedTargets(SpellEntry const* spellInfo, WorldObject* caste
                 case 26457:                                 // Drain Mana (correct number has to be researched)
                 case 26559:
                     return 12;
-                case 46771:                                 // Flame Sear (SWP, Grand Warlock Alythess)
-                    return urand(3, 5);
                 case 42471:                                 // Hatch Eggs
                     if (UnitAI* ai = static_cast<Unit*>(caster)->AI())
                         return ai->GetScriptData();
@@ -2117,6 +2129,11 @@ inline bool IsStackableAuraEffect(SpellEntry const* entry, SpellEntry const* ent
         case SPELL_AURA_POWER_BURN_MANA:
             if (entry->Id == 38575) // Vashj - Toxic Spores
                 return false;
+            if (entry->Id == 45402) // Felmyst - Demonic Vapor
+                return false;
+            if (entry->Id == 45032 || entry->Id == 45034) // Kalecgos - Curse of boundless agony
+                if (entry2->Id == 45032 || entry2->Id == 45034)
+                    return false;
             return true;
             break;
         // HoT
@@ -2259,6 +2276,10 @@ inline bool IsStackableAuraEffect(SpellEntry const* entry, SpellEntry const* ent
             break;
         case SPELL_AURA_MOD_DETECT_RANGE: // Never stack
             return false;
+        case SPELL_AURA_PERIODIC_ENERGIZE:
+            if (entry->Id == 45860 && entry2->Id == 45860) // Breath: Revitalize
+                return false;
+            break;
     }
     if (nonmui && instance && !IsChanneledSpell(entry) && !IsChanneledSpell(entry2))
         return false; // Forbids multi-ranking and multi-application on rule, exclude channeled spells (like Mind Flay)
@@ -2405,7 +2426,7 @@ enum ProcFlags : uint32
     PROC_FLAG_TAKE_ANY_DAMAGE               = 0x00100000,   // 20 Taken any damage
     PROC_FLAG_DEAL_HELPFUL_PERIODIC         = 0x00200000,   // 21 On trap activation - TODO: change meaning
 
-    PROC_FLAG_MAIN_HAND_WEAPON_SWING        = 0x00400000,   // 22 Taken off-hand melee attacks(not used) - TODO: change meaning
+    PROC_FLAG_MAIN_HAND_WEAPON_SWING        = 0x00400000,   // 22 Successful main-hand melee attacks
     PROC_FLAG_OFF_HAND_WEAPON_SWING         = 0x00800000,   // 23 Successful off-hand melee attacks
 
     PROC_FLAG_DEATH                         = 0x01000000,   // 24 On death by any means

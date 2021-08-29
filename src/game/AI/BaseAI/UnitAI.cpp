@@ -68,7 +68,7 @@ void UnitAI::MoveInLineOfSight(Unit* who)
         return;
 
     if (who->GetObjectGuid().IsCreature() && who->IsInCombat())
-        CheckForHelp(who, m_unit, 10.0);
+        CheckForHelp(who, m_unit, sWorld.getConfig(CONFIG_FLOAT_CREATURE_CHECK_FOR_HELP_RADIUS));
 
     if (!HasReactState(REACT_AGGRESSIVE)) // mobs who are aggressive can still assist
         return;
@@ -284,7 +284,7 @@ void UnitAI::SetFollowMovement(bool enable)
 
 bool UnitAI::IsCombatMovement() const
 {
-    return m_unit && !m_unit->hasUnitState(UNIT_STAT_NO_COMBAT_MOVEMENT);
+    return !m_unit->hasUnitState(UNIT_STAT_NO_COMBAT_MOVEMENT);
 }
 
 void UnitAI::HandleMovementOnAttackStart(Unit* victim) const
@@ -393,6 +393,9 @@ void UnitAI::OnChannelStateChange(Spell const* spell, bool state, WorldObject* t
             return;
     }
 
+    if (spellInfo->Id == 45661) // Felmyst Encapsulate - cast time tracks target but channel time ignores him
+        return;
+
     bool forceTarget = true; // Different default than normal cast
 
     // Targeting seems to be directly affected by eff index 0 targets, client does the same thing
@@ -441,15 +444,12 @@ void UnitAI::CheckForHelp(Unit* who, Unit* me, float distance)
     if (!victim)
         return;
 
-    if (me->IsInCombat() || !me->CanCallForAssistance() || !who->CanCallForAssistance())
+    if (me->IsInCombat() || !me->CanCallForAssistance() || !who->CanCallForAssistance() || !me->CanCheckForHelp())
         return;
 
     // pulling happens once panic/retreating ends
     if (who->hasUnitState(UNIT_STAT_PANIC | UNIT_STAT_RETREATING))
         return;
-
-    if (me->GetMap()->Instanceable())
-        distance = distance / 2.5f;
 
     if (me->CanInitiateAttack() && me->CanAttackOnSight(victim) && victim->isInAccessablePlaceFor(me) && victim->IsVisibleForOrDetect(me, me, false))
     {

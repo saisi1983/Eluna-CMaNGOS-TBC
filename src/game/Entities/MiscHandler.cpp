@@ -173,7 +173,7 @@ void WorldSession::HandleWhoOpcode(WorldPacket& recv_data)
             continue;
 
         // check if target's level is in level range
-        uint32 lvl = pl->getLevel();
+        uint32 lvl = pl->GetLevel();
         if (lvl < level_min || lvl > level_max)
             continue;
 
@@ -931,16 +931,6 @@ void WorldSession::HandleSetActionBarTogglesOpcode(WorldPacket& recv_data)
     GetPlayer()->SetByteValue(PLAYER_FIELD_BYTES, PLAYER_FIELD_BYTES_OFFSET_ACTION_BAR_TOGGLES, ActionBar);
 }
 
-void WorldSession::HandleWardenDataOpcode(WorldPacket& recv_data)
-{
-    recv_data.read_skip<uint8>();
-    /*
-        uint8 tmp;
-        recv_data >> tmp;
-        DEBUG_LOG("Received opcode CMSG_WARDEN_DATA, not resolve.uint8 = %u", tmp);
-    */
-}
-
 void WorldSession::HandlePlayedTime(WorldPacket& /*recv_data*/)
 {
     WorldPacket data(SMSG_PLAYED_TIME, 4 + 4);
@@ -1326,7 +1316,7 @@ void WorldSession::HandleSetDungeonDifficultyOpcode(WorldPacket& recv_data)
     }
 
     // Exception to set mode to normal for low-level players
-    if (_player->getLevel() < LEVELREQUIREMENT_HEROIC && mode > REGULAR_DIFFICULTY)
+    if (_player->GetLevel() < LEVELREQUIREMENT_HEROIC && mode > REGULAR_DIFFICULTY)
         return;
 
     if (Group* pGroup = _player->GetGroup())

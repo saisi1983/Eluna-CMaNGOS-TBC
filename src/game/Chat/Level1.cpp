@@ -37,6 +37,7 @@
 #include "Mails/Mail.h"
 #include "Util.h"
 #include "AI/ScriptDevAI/ScriptDevAIMgr.h"
+#include "Anticheat/Anticheat.hpp"
 #include "Spells/SpellMgr.h"
 #include "Entities/Transports.h"
 #ifdef _DEBUG_VMAPS
@@ -2015,7 +2016,7 @@ bool ChatHandler::ModifyMountCommandHelper(Player* target, char* args)
         slow = true;
     else
     {
-        const uint32 level = target->getLevel();
+        const uint32 level = target->GetLevel();
         fast = (level >= 60);
         slow = (!fast && level >= 30);
     }
@@ -2285,5 +2286,12 @@ bool ChatHandler::HandleChannelStaticCommand(char* args)
         PSendSysMessage(LANG_COMMAND_CHANNEL_STATIC_SUCCESS, channel->GetName().c_str(), GetMangosString((state ? LANG_ON : LANG_OFF)));
     }
 
+    return true;
+}
+
+bool ChatHandler::HandleReloadAnticheatCommand(char*)
+{
+    sAnticheatLib->Reload();
+    SendSysMessage(">> Anticheat data reloaded");
     return true;
 }

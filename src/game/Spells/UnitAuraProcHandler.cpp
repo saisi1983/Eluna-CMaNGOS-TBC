@@ -671,6 +671,10 @@ bool Unit::IsTriggeredAtSpellProcEvent(ProcExecutionData& data, SpellAuraHolder*
     if (Player* modOwner = GetSpellModOwner())
         modOwner->ApplySpellMod(spellProto->Id, SPELLMOD_CHANCE_OF_SUCCESS, chance);
 
+    // proc chance is reduced by an additional 3.333% per level past 60
+    if (holder->IsReducedProcChancePast60() && GetLevel() > 60)
+        chance = std::max(0.f, (1.f - ((GetLevel() - 60) * 1.f / 30.f)) * chance);
+
     if (data.spell)
     {
         if (data.spell->m_IsTriggeredSpell && !spellProto->HasAttribute(SPELL_ATTR_EX3_CAN_PROC_FROM_TRIGGERED))
@@ -1746,6 +1750,9 @@ SpellAuraProcResult Unit::HandleDummyAuraProc(ProcExecutionData& data)
                     if (castItem->GetSlot() == EQUIPMENT_SLOT_MAINHAND && procFlags & PROC_FLAG_OFF_HAND_WEAPON_SWING)
                         return SPELL_AURA_PROC_FAILED;
 
+                    if (castItem->GetSlot() == EQUIPMENT_SLOT_OFFHAND && procFlags & PROC_FLAG_MAIN_HAND_WEAPON_SWING)
+                        return SPELL_AURA_PROC_FAILED;
+
                     // custom cooldown processing case
                     if (cooldown && !IsSpellReady(*dummySpell))
                         return SPELL_AURA_PROC_FAILED;
@@ -2107,50 +2114,6 @@ SpellAuraProcResult Unit::HandleProcTriggerSpellAuraProc(ProcExecutionData& data
                     uint32 zoneId = GetZoneId();
                     if (zoneId != 4075  && zoneId != 4080 && zoneId != 4131)
                         return SPELL_AURA_PROC_FAILED;
-                    break;
-                }
-                case 45343:                         // Dark Flame Aura proc from scarolash
-                {
-                    if (!spellInfo)
-                        return SPELL_AURA_PROC_FAILED;
-                    if (HasAura(45345))       // SPELL_DARK_FLAME on player
-                        return SPELL_AURA_PROC_FAILED;
-                    if (spellInfo->Id == 45256      // confunding blow
-                        || spellInfo->Id == 45248    // shadow blades
-                        || spellInfo->Id == 45329)   // shadow nova
-                    {
-                        cooldown = 1;
-                        target = this;
-                        if (this->HasAura(45348))
-                        {
-                            this->RemoveAurasDueToSpell(45348);
-                            trigger_spell_id = 45345;
-                        }
-                        else
-                            trigger_spell_id = 45347;
-                    }
-                    break;
-                }
-                case 47300: // Dark Flame Aura              procs from alythess
-                {
-                    if (!spellInfo)
-                        return SPELL_AURA_PROC_FAILED;
-                    if (this->HasAura(45345))                   // SPELL_DARK_FLAME on player
-                        return SPELL_AURA_PROC_FAILED;
-                    if (spellInfo->Id == 46771                  // flame sear
-                        || spellInfo->Id == 45342           // or conflag
-                        || spellInfo->Id == 45235)          // or blaze
-                    {
-                        cooldown = 1;
-                        target = this;
-                        if (this->HasAura(45347))
-                        {
-                            this->RemoveAurasDueToSpell(45347);
-                            trigger_spell_id = 45345;
-                        }
-                        else
-                            trigger_spell_id = 45348;
-                    }
                     break;
                 }
                 case 48473:                                 // Capture Soul - Doom Lord Kazzak
@@ -2616,7 +2579,7 @@ SpellAuraProcResult Unit::HandleProcTriggerDamageAuraProc(ProcExecutionData& dat
     DEBUG_FILTER_LOG(LOG_FILTER_SPELL_CAST, "ProcDamageAndSpell: doing %u damage from spell id %u (triggered by auratype %u of spell %u)",
                      triggeredByAura->GetModifier()->m_amount, spellInfo->Id, triggeredByAura->GetModifier()->m_auraname, triggeredByAura->GetId());
     // Trigger damage can be resisted...
-    if (SpellMissInfo missInfo = this->SpellHitResult(victim, spellInfo, uint8(1 << triggeredByAura->GetEffIndex()), false))
+    if (SpellMissInfo missInfo = SpellHitResult(this, victim, spellInfo, uint8(1 << triggeredByAura->GetEffIndex()), false))
     {
         SendSpellDamageResist(victim, spellInfo->Id);
         return SPELL_AURA_PROC_OK;
@@ -2626,7 +2589,7 @@ SpellAuraProcResult Unit::HandleProcTriggerDamageAuraProc(ProcExecutionData& dat
     spellDamageInfo.target->CalculateAbsorbResistBlock(this, &spellDamageInfo, spellInfo);
     Unit::DealDamageMods(this, spellDamageInfo.target, spellDamageInfo.damage, &spellDamageInfo.absorb, SPELL_DIRECT_DAMAGE);
     SendSpellNonMeleeDamageLog(&spellDamageInfo);
-    DealSpellDamage(&spellDamageInfo, true, false);
+    DealSpellDamage(this, &spellDamageInfo, true, false);
     return SPELL_AURA_PROC_OK;
 }
 
@@ -2873,7 +2836,9 @@ SpellAuraProcResult Unit::HandleRaidProcFromChargeWithValueAuraProc(ProcExecutio
     }
 
     // heal
-    CastCustomSpell(nullptr, 33110, &heal, nullptr, nullptr, TRIGGERED_IGNORE_GCD | TRIGGERED_IGNORE_CURRENT_CASTED_SPELL | TRIGGERED_HIDE_CAST_IN_COMBAT_LOG);
+    SpellCastResult result = CastCustomSpell(nullptr, 33110, &heal, nullptr, nullptr, TRIGGERED_IGNORE_GCD | TRIGGERED_IGNORE_CURRENT_CASTED_SPELL | TRIGGERED_HIDE_CAST_IN_COMBAT_LOG);
+    if (result != SPELL_CAST_OK)
+        sLog.outCustomLog("POM fail result: %u", result);
     return SPELL_AURA_PROC_OK;
 }
 
@@ -2983,7 +2948,7 @@ SpellAuraProcResult Unit::HandleRemoveByDamageChanceProc(ProcExecutionData& data
     if (triggeredByAura->GetSpellProto()->Id == 46102) // does not follow this logic
         return SPELL_AURA_PROC_OK;
     // The chance to dispel an aura depends on the damage taken with respect to the casters level.
-    uint32 max_dmg = getLevel() > 8 ? 25 * getLevel() - 150 : 50;
+    uint32 max_dmg = GetLevel() > 8 ? 25 * GetLevel() - 150 : 50;
     float chance = float(damage) / max_dmg * 100.0f;
     if (roll_chance_f(chance))
     {

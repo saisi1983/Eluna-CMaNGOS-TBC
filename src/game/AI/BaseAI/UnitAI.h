@@ -480,6 +480,10 @@ class UnitAI
 
         virtual void HandleAssistanceCall(Unit* sender, Unit* invoker) {} // implemented for creatures
 
+        virtual bool IsPreventingDeath() const { return false; }
+
+        bool IsMeleeEnabled() const { return m_meleeEnabled; }
+
     protected:
         virtual std::string GetAIName() { return "UnitAI"; }
         void DespawnGuids(GuidVector& spawns); // despawns all creature guids and clears contents

@@ -208,15 +208,6 @@ void CreatureEventAI::InitAI()
             }
         }
     }
-    else
-    {
-        std::string aiName = m_creature->GetAIName();
-        if (aiName == "EventAI") // Only show error on explicitly assigned EAI in DB
-        {
-            sLog.outErrorEventAI("EventMap for Creature Id: %u, %s is empty but creature is using CreatureEventAI: '%s'.",
-                m_creature->GetEntry(), m_creature->GetGuidStr().c_str(), aiName.c_str());
-        }
-    }
 }
 
 bool CreatureEventAI::IsTimerExecutedEvent(EventAI_Type type) const
@@ -1696,7 +1687,7 @@ void CreatureEventAI::SpellHitTarget(Unit* target, const SpellEntry* spellInfo)
 void CreatureEventAI::UpdateAI(const uint32 diff)
 {
     // Check if we are in combat (also updates calls threat update code)
-    bool Combat = m_creature->SelectHostileTarget() && m_creature->GetVictim();
+    bool Combat = m_creature->SelectHostileTarget();
 
     UpdateEventTimers(diff);
 
@@ -1708,7 +1699,9 @@ void CreatureEventAI::UpdateAI(const uint32 diff)
         {
             if (m_rangedModeSetting == TYPE_PROXIMITY || m_rangedModeSetting == TYPE_DISTANCER)
             {
-                if (m_currentRangedMode && m_creature->CanReachWithMeleeAttack(victim))
+                if (!m_currentRangedMode && victim->IsImmobilizedState() && IsCombatMovement() && m_mainSpellInfo && m_mainSpellCost * 2 < m_creature->GetPower(POWER_MANA) && m_creature->IsSpellReady(*m_mainSpellInfo))
+                    DistanceYourself();
+                else if (m_currentRangedMode && m_creature->CanReachWithMeleeAttack(victim))
                     SetCurrentRangedMode(false);
                 else if (!m_currentRangedMode && !m_creature->CanReachWithMeleeAttack(victim, 2.f) && m_mainSpellInfo && m_mainSpellCost * 2 < m_creature->GetPower(POWER_MANA) && m_creature->IsSpellReady(*m_mainSpellInfo))
                     SetCurrentRangedMode(true);
@@ -1719,7 +1712,7 @@ void CreatureEventAI::UpdateAI(const uint32 diff)
                 }
             }
             // casters only display melee animation when in ranged mode when someone is actually close enough
-            else if (m_rangedModeSetting == TYPE_FULL_CASTER && m_currentRangedMode && m_meleeEnabled)
+            else if (m_currentRangedMode && m_meleeEnabled)
             {
                 if (m_unit->hasUnitState(UNIT_STAT_MELEE_ATTACKING) && !m_creature->CanReachWithMeleeAttack(victim))
                     m_unit->MeleeAttackStop(m_unit->GetVictim());

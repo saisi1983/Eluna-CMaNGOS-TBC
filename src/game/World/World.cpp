@@ -66,6 +66,7 @@
 #include "World/WorldState.h"
 #include "Cinematics/CinematicMgr.h"
 #include "Maps/TransportMgr.h"
+#include "Anticheat/Anticheat.hpp"
 
 #ifdef BUILD_AHBOT
  #include "AuctionHouseBot/AuctionHouseBot.h"
@@ -445,6 +446,8 @@ void World::LoadConfigSettings(bool reload)
     setConfigPos(CONFIG_FLOAT_SIGHT_MONSTER,     "MonsterSight",       50.0f);
 
     setConfigPos(CONFIG_FLOAT_CREATURE_FAMILY_ASSISTANCE_RADIUS,      "CreatureFamilyAssistanceRadius",     10.0f);
+    setConfigPos(CONFIG_FLOAT_CREATURE_CHECK_FOR_HELP_RADIUS,         "CreatureCheckForHelpRadius",     5.0f);
+    setConfig(CONFIG_UINT32_CREATURE_CHECK_FOR_HELP_AGGRO_DELAY,      "CreatureCheckForHelpAggroDelay",     2000);
     setConfigPos(CONFIG_FLOAT_CREATURE_FAMILY_FLEE_ASSISTANCE_RADIUS, "CreatureFamilyFleeAssistanceRadius", 30.0f);
 
     ///- Read other configuration items from the config file
@@ -1047,6 +1050,9 @@ void World::SetInitialWorldSettings()
     sLog.outString("Loading Creature Data...");
     sObjectMgr.LoadCreatures();
 
+    sLog.outString("Loading Gameobject Spawn Entry Data..."); // must be before LoadGameObjects
+    sObjectMgr.LoadGameObjectSpawnEntry();
+
     sLog.outString("Loading Gameobject Data...");
     sObjectMgr.LoadGameObjects();
 
@@ -1380,6 +1386,9 @@ void World::SetInitialWorldSettings()
 
     // Delete all characters which have been deleted X days before
     Player::DeleteOldCharacters();
+
+    sLog.outString("Loading anticheat library");
+    sAnticheatLib->Initialize();
 
 #ifdef BUILD_AHBOT
     sLog.outString("Initialize AuctionHouseBot...");
@@ -2586,6 +2595,22 @@ void World::InvalidatePlayerDataToAllClient(ObjectGuid guid) const
     WorldPacket data(SMSG_INVALIDATE_PLAYER, 8);
     data << guid;
     SendGlobalMessage(data);
+}
+
+void World::SendGMTextFlags(uint32 accountFlag, int32 stringId, std::string type, const char* message)
+{
+    std::string mangosString = sObjectMgr.GetMangosString(stringId, DEFAULT_LOCALE);
+    std::string output = mangosString + " Type: " + type + " Content: " + message;
+    WorldPacket inform;
+    ChatHandler::BuildChatPacket(inform, CHAT_MSG_WHISPER_INFORM, output.data(), LANG_UNIVERSAL, CHAT_TAG_NONE);
+    GetMessager().AddMessage([inform, accountFlag](World* world)
+    {
+        world->ExecuteForAllSessions([inform, accountFlag](auto& data)
+        {
+            if (data.HasAccountFlag(accountFlag))
+                data.SendPacket(inform);
+        });
+    });
 }
 
 void World::IncrementOpcodeCounter(uint32 opcodeId)

@@ -40,7 +40,7 @@ namespace MaNGOS
         GuidSet i_clientGUIDs;
         WorldObjectSet i_visibleNow;
 
-        explicit VisibleNotifier(Camera& c) : i_camera(c), i_clientGUIDs(c.GetOwner()->m_clientGUIDs) {}
+        explicit VisibleNotifier(Camera& c) : i_camera(c), i_clientGUIDs(c.GetOwner()->GetClientGuids()) {}
         template<class T> void Visit(GridRefManager<T>& m);
         void Visit(CameraMapType& /*m*/) {}
         void Notify(void);
@@ -50,9 +50,13 @@ namespace MaNGOS
     {
         WorldObject& i_object;
 
-        explicit VisibleChangesNotifier(WorldObject& object) : i_object(object) {}
+        explicit VisibleChangesNotifier(WorldObject& object) : i_object(object), m_unvisitedGuids(i_object.GetClientGuidsIAmAt()) {}
         template<class T> void Visit(GridRefManager<T>&) {}
         void Visit(CameraMapType&);
+
+        GuidSet& GetUnvisitedGuids() { return m_unvisitedGuids; }
+
+        GuidSet m_unvisitedGuids;
     };
 
     struct MessageDeliverer
@@ -587,8 +591,8 @@ namespace MaNGOS
     class GameObjectFocusCheck
     {
         public:
-            GameObjectFocusCheck(Unit const* unit, uint32 focusId) : i_unit(unit), i_focusId(focusId) {}
-            WorldObject const& GetFocusObject() const { return *i_unit; }
+            GameObjectFocusCheck(WorldObject const* unit, uint32 focusId) : i_object(unit), i_focusId(focusId) {}
+            WorldObject const& GetFocusObject() const { return *i_object; }
             bool operator()(GameObject* go) const
             {
                 GameObjectInfo const* goInfo = go->GetGOInfo();
@@ -603,10 +607,10 @@ namespace MaNGOS
 
                 float dist = (float)goInfo->spellFocus.dist;
 
-                return go->IsWithinDistInMap(i_unit, dist);
+                return go->IsWithinDistInMap(i_object, dist);
             }
         private:
-            Unit const* i_unit;
+            WorldObject const* i_object;
             uint32 i_focusId;
     };
 

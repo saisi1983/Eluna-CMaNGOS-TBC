@@ -956,15 +956,16 @@ class Player : public Unit
 
         bool TeleportToBGEntryPoint();
 
-        void SetSummonPoint(uint32 mapid, float x, float y, float z)
+        void SetSummonPoint(uint32 mapid, float x, float y, float z, ObjectGuid summoner)
         {
             m_summon_expire = time(nullptr) + MAX_PLAYER_SUMMON_DELAY;
             m_summon_mapid = mapid;
             m_summon_x = x;
             m_summon_y = y;
             m_summon_z = z;
+            m_summoner = summoner;
         }
-        void SummonIfPossible(bool agree);
+        void SummonIfPossible(bool agree, ObjectGuid guid);
 
         bool Create(uint32 guidlow, const std::string& name, uint8 race, uint8 class_, uint8 gender, uint8 skin, uint8 face, uint8 hairStyle, uint8 hairColor, uint8 facialHair, uint8 outfitId);
 
@@ -1084,7 +1085,7 @@ class Player : public Unit
         // Legacy taxi system
         PlayerTaxi m_taxi;
 
-        void InitTaxiNodesForLevel() { m_taxi.InitTaxiNodesForLevel(getRace(), getLevel()); }
+        void InitTaxiNodesForLevel() { m_taxi.InitTaxiNodesForLevel(getRace(), GetLevel()); }
 
         bool ActivateTaxiPathTo(std::vector<uint32> const& nodes, Creature* npc = nullptr, uint32 spellid = 0);
         bool ActivateTaxiPathTo(uint32 path_id, uint32 spellid = 0);
@@ -1273,7 +1274,7 @@ class Player : public Unit
         /*********************************************************/
 
         // Return player level when QuestLevel is dynamic (-1)
-        uint32 GetQuestLevelForPlayer(Quest const* pQuest) const { return pQuest && (pQuest->GetQuestLevel() > 0) ? (uint32)pQuest->GetQuestLevel() : getLevel(); }
+        uint32 GetQuestLevelForPlayer(Quest const* pQuest) const { return pQuest && (pQuest->GetQuestLevel() > 0) ? (uint32)pQuest->GetQuestLevel() : GetLevel(); }
 
         void PrepareQuestMenu(ObjectGuid guid) const;
         void SendPreparedQuest(ObjectGuid guid) const;
@@ -1297,6 +1298,7 @@ class Player : public Unit
         void CompleteQuest(uint32 quest_id);
         void IncompleteQuest(uint32 quest_id);
         void RewardQuest(Quest const* pQuest, uint32 reward, Object* questGiver, bool announce = true);
+        bool IsQuestExplored(uint32 quest_id) const;
 
         void FailQuest(uint32 questId);
         void FailQuest(Quest const* quest);
@@ -2127,9 +2129,10 @@ class Player : public Unit
         Object* GetObjectByTypeMask(ObjectGuid guid, TypeMask typemask);
 
         // currently visible objects at player client
-        GuidSet m_clientGUIDs;
-
-        bool HaveAtClient(WorldObject const* u) { return u == this || m_clientGUIDs.find(u->GetObjectGuid()) != m_clientGUIDs.end(); }
+        bool HasAtClient(WorldObject const* u) { return u == this || m_clientGUIDs.find(u->GetObjectGuid()) != m_clientGUIDs.end(); }
+        void AddAtClient(WorldObject* target);
+        void RemoveAtClient(WorldObject* target);
+        GuidSet& GetClientGuids() { return m_clientGUIDs; }
 
         bool IsVisibleInGridForPlayer(Player* pl) const override;
         bool IsVisibleGloballyFor(Player* u) const;
@@ -2500,6 +2503,7 @@ class Player : public Unit
         float  m_summon_x;
         float  m_summon_y;
         float  m_summon_z;
+        ObjectGuid m_summoner;
 
         DeclinedName* m_declinedname;
     private:
@@ -2601,6 +2605,8 @@ class Player : public Unit
 
         Spell* m_modsSpell;
         std::set<SpellModifierPair>* m_consumedMods;
+
+        GuidSet m_clientGUIDs;
 
         // Recruit-A-Friend
         uint8 m_grantableLevels;

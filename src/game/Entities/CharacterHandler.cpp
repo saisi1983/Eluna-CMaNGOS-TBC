@@ -39,6 +39,7 @@
 #include "Util.h"
 #include "Tools/Language.h"
 #include "AI/ScriptDevAI/ScriptDevAIMgr.h"
+#include "Anticheat/Anticheat.hpp"
 
 #ifdef BUILD_PLAYERBOT
 #include "PlayerBot/Base/PlayerbotMgr.h"
@@ -115,8 +116,13 @@ class CharacterHandler
     public:
         void HandleCharEnumCallback(QueryResult* result, uint32 account)
         {
-            if (WorldSession* session = sWorld.FindSession(account))
-                session->HandleCharEnum(result);
+            WorldSession* session = sWorld.FindSession(account);
+            if (!session)
+            {
+                delete result;
+                return;
+            }
+            session->HandleCharEnum(result);
         }
 
         void HandlePlayerLoginCallback(QueryResult* /*dummy*/, SqlQueryHolder* holder)
@@ -147,7 +153,7 @@ class CharacterHandler
 
             // The bot's WorldSession is owned by the bot's Player object
             // The bot's WorldSession is deleted by PlayerbotMgr::LogoutPlayerBot
-            WorldSession* botSession = new WorldSession(lqh->GetAccountId(), nullptr, SEC_PLAYER, masterSession->GetExpansion(), 0, DEFAULT_LOCALE, 0, false);
+            WorldSession* botSession = new WorldSession(lqh->GetAccountId(), nullptr, SEC_PLAYER, masterSession->GetExpansion(), 0, DEFAULT_LOCALE, masterSession->GetAccountName(), 0, masterSession->GetRecruitingFriendId(), false);
             botSession->HandlePlayerLogin(lqh); // will delete lqh
             masterSession->GetPlayer()->GetPlayerbotMgr()->OnBotLogin(botSession->GetPlayer());
         }
@@ -178,7 +184,7 @@ void WorldSession::HandleCharEnum(QueryResult* result)
 
     data.put<uint8>(0, num);
 
-    SendPacket(data, true);
+    m_anticheat->SendCharEnum(std::move(data));
 }
 
 void WorldSession::HandleCharEnumOpcode(WorldPacket& /*recv_data*/)
@@ -597,7 +603,7 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder* holder)
         return;
     }
 
-    m_currentPlayerLevel = pCurrChar->getLevel();
+    m_currentPlayerLevel = pCurrChar->GetLevel();
 
     pCurrChar->GetMotionMaster()->Initialize();
 
@@ -849,6 +855,7 @@ void WorldSession::HandlePlayerReconnect()
     m_initialZoneUpdated = false;
 
     SetOnline();
+    m_anticheat->NewPlayer();
 
     Group* group = _player->GetGroup();
 

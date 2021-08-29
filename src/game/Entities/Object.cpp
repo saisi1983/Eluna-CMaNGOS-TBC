@@ -1124,12 +1124,13 @@ WorldObject::WorldObject() :
     m_transportInfo(nullptr), m_isOnEventNotified(false),
     m_visibilityData(this), m_currMap(nullptr),
     m_mapId(0), m_InstanceId(0), m_phaseMask(1),
-    m_isActiveObject(false), m_debugFlags(0), m_transport(nullptr)
+    m_isActiveObject(false), m_debugFlags(0), m_transport(nullptr), m_castCounter(0)
 {
 }
 
 void WorldObject::CleanupsBeforeDelete()
 {
+    m_events.KillAllEvents(false);                      // non-delatable (currently casted spells) will not deleted now but it will deleted at call in Map::RemoveAllObjectsInRemoveList
     RemoveFromWorld();
 }
 
@@ -2016,15 +2017,16 @@ Creature* WorldObject::SummonCreature(TempSpawnSettings settings, Map* map)
         }
     }
 
-    creature->Summon(settings.spawnType, settings.despawnTime);                  // Also initializes the AI and MMGen
-    if (settings.corpseDespawnTime)
-        creature->SetCorpseDelay(settings.corpseDespawnTime);
-
     if (settings.spellId)
         creature->SetUInt32Value(UNIT_CREATED_BY_SPELL, settings.spellId);
 
     if (settings.ownerGuid)
         creature->SetOwnerGuid(settings.ownerGuid);
+
+    creature->Summon(settings.spawnType, settings.despawnTime);                  // Also initializes the AI and MMGen
+
+    if (settings.corpseDespawnTime)
+        creature->SetCorpseDelay(settings.corpseDespawnTime);
 
     if (settings.spawner && settings.spawner->GetTypeId() == TYPEID_UNIT)
         if (Creature* spawnerCreature = static_cast<Creature*>(settings.spawner))
@@ -2396,7 +2398,7 @@ struct WorldObjectChangeAccumulator
         for (auto& iter : m)
         {
             Player* owner = iter.getSource()->GetOwner();
-            if (owner != &i_object && owner->HaveAtClient(&i_object))
+            if (owner != &i_object && owner->HasAtClient(&i_object))
                 i_object.BuildUpdateDataForPlayer(owner, i_updateDatas);
         }
     }
@@ -2844,7 +2846,7 @@ int32 WorldObject::CalculateSpellEffectValue(Unit const* target, SpellEntry cons
     int32 randomPoints = spellProto->EffectDieSides[effect_index];
     if (unitCaster && basePointsPerLevel != 0.f)
     {
-        int32 level = int32(unitCaster->getLevel());
+        int32 level = int32(unitCaster->GetLevel());
         if (level > (int32)spellProto->maxLevel && spellProto->maxLevel > 0)
             level = (int32)spellProto->maxLevel;
         else if (level < (int32)spellProto->baseLevel)
@@ -2943,7 +2945,7 @@ int32 WorldObject::CalculateSpellEffectValue(Unit const* target, SpellEntry cons
         if (damage)
         {
             GtNPCManaCostScalerEntry const* spellScaler = sGtNPCManaCostScalerStore.LookupEntry(spellProto->spellLevel - 1);
-            GtNPCManaCostScalerEntry const* casterScaler = sGtNPCManaCostScalerStore.LookupEntry(unitCaster->getLevel() - 1);
+            GtNPCManaCostScalerEntry const* casterScaler = sGtNPCManaCostScalerStore.LookupEntry(unitCaster->GetLevel() - 1);
             if (spellScaler && casterScaler)
                 value *= casterScaler->ratio / spellScaler->ratio;
         }
@@ -2987,4 +2989,25 @@ bool operator!=(const Position& left, const Position& right)
 bool WorldObject::IsUsingNewSpawningSystem() const
 {
     return GetDbGuid() && GetDbGuid() != GetGUIDLow();
+}
+
+void WorldObject::AddClientIAmAt(Player const* player)
+{
+    m_clientGUIDsIAmAt.insert(player->GetObjectGuid());
+}
+
+void WorldObject::RemoveClientIAmAt(Player const* player)
+{
+    m_clientGUIDsIAmAt.erase(player->GetObjectGuid());
+}
+
+bool WorldObject::CheckAndIncreaseCastCounter()
+{
+    uint32 maxCasts = sWorld.getConfig(CONFIG_UINT32_MAX_SPELL_CASTS_IN_CHAIN);
+
+    if (maxCasts && m_castCounter >= maxCasts)
+        return false;
+
+    ++m_castCounter;
+    return true;
 }
