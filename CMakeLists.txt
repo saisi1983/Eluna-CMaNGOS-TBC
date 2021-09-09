@@ -28,7 +28,7 @@ endif()
 project(CMaNGOS_TBC)
 
 # Require C++ 14 support
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -212,7 +212,7 @@ if (POLICY CMP0074)
 endif()
 
 # Find needed packages and if necessery abort if something important is missing
-find_package(Boost REQUIRED COMPONENTS system program_options thread regex serialization)
+find_package(Boost REQUIRED COMPONENTS system program_options thread regex serialization filesystem)
 
 if(NOT Boost_FOUND AND (BUILD_GAME_SERVER OR BUILD_LOGIN_SERVER))
   message(STATUS "BOOST_ROOT = $ENV{BOOST_ROOT}")
