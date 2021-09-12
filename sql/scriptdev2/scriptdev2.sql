@@ -112,6 +112,7 @@ UPDATE gameobject_template SET ScriptName='go_dragon_head' WHERE entry IN(179556
 UPDATE gameobject_template SET ScriptName='go_unadorned_spike' WHERE entry IN(175787);
 UPDATE gameobject_template SET ScriptName='go_containment_coffer' WHERE entry=122088;
 UPDATE gameobject_template SET ScriptName='go_large_jack_o_lantern' WHERE entry=186887;
+UPDATE gameobject_template SET ScriptName='go_imp_in_a_ball' WHERE entry=185898;
 
 /* GUARD */
 UPDATE creature_template SET ScriptName='guard_azuremyst' WHERE entry=18038;
@@ -171,6 +172,7 @@ UPDATE creature_template SET ScriptName='npc_orphan' WHERE entry IN (23712,23971
 UPDATE creature_template SET ScriptName='npc_shade_of_the_horseman' WHERE entry=23543;
 UPDATE creature_template SET ScriptName='npc_headless_horseman_fire' WHERE entry=23537;
 UPDATE creature_template SET ScriptName='npc_child_tbc' WHERE entry IN(22817,22818);
+UPDATE creature_template SET ScriptName='npc_imp_in_a_ball' WHERE entry IN (23224,23229);
 
 /*Quest (quest scripts which are not in one zone)*/
 UPDATE creature_template SET ScriptName='npc_quest_attunement' WHERE entry IN(22421,18528,19935);
@@ -2564,6 +2566,12 @@ INSERT INTO script_texts (entry,content_default,sound,type,language,emote,broadc
 ('-1001309','Prepare a funeral pyre! $n has challenged Skyshatter!','0','1','0','1','21430','Captain Skyshatter - SAY_START_SKYSHATTER'),
 ('-1001310','I weep for you, $n. You really have no idea what you''ve gotten yourself into...','0','0','0','1','21432','Captain Skyshatter - SAY_MID_SKYSHATTER'),
 ('-1001311','I... I am undone... The new top orc is $n!','0','1','0','1','21431','Captain Skyshatter - SAY_END_SKYSHATTER'),
+
+('-1001319','It is a beacon. A remnant of a forgotten era.','0','4','0','0','16011','Vision of the Forgotten WHISPER_VISIT_WITH_ANCESTORS_1'),
+('-1001320','They lack control... Oshu\'gun calls to them...','0','4','0','0','16010','Vision of the Forgotten WHISPER_VISIT_WITH_ANCESTORS_2'),
+('-1001321','Turn back, mortal... This is not your battle.','0','4','0','0','16007','Vision of the Forgotten WHISPER_VISIT_WITH_ANCESTORS_3'),
+('-1001322','We are infinite... eternal.','0','4','0','0','16009','Vision of the Forgotten WHISPER_VISIT_WITH_ANCESTORS_4'),
+('-1001323','You cannot stop them.','0','4','0','0','16008','Vision of the Forgotten WHISPER_VISIT_WITH_ANCESTORS_5'),
 
 -- -1 010 000 Classic texts
 ('-1010000','The beast returns from whence it came. The wrath of Neptulon has subsided.','0','3','0','0','11160','Maws EMOTE_MAWS_KILL'),
