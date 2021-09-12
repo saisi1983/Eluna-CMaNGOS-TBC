@@ -1448,6 +1448,9 @@ class Player : public Unit
         void setRegenTimer(uint32 time) {m_regenTimer = time;}
 
         uint32 GetMoney() const { return GetUInt32Value(PLAYER_FIELD_COINAGE); }
+#ifdef BUILD_ELUNA
+        void ModifyMoney(int32 d);
+#else
         void ModifyMoney(int32 d)
         {
             if (d < 0)
@@ -1459,6 +1462,7 @@ class Player : public Unit
             if (GetMoney() >= MAX_MONEY_AMOUNT)
                 SendEquipError(EQUIP_ERR_TOO_MUCH_GOLD, nullptr, nullptr);
         }
+#endif
         void SetMoney(uint32 value)
         {
             SetUInt32Value(PLAYER_FIELD_COINAGE, value);
@@ -1545,7 +1549,11 @@ class Player : public Unit
         void learnSpellHighRank(uint32 spellid);
 
         uint32 GetFreeTalentPoints() const { return GetUInt32Value(PLAYER_CHARACTER_POINTS1); }
+#ifdef BUILD_ELUNA
+        void SetFreeTalentPoints(uint32 points);
+#else
         void SetFreeTalentPoints(uint32 points) { SetUInt32Value(PLAYER_CHARACTER_POINTS1, points); }
+#endif
         void UpdateFreeTalentPoints(bool resetIfNeed = true);
         bool resetTalents(bool no_cost = false);
         uint32 resetTalentsCost() const;

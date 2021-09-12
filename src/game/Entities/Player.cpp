@@ -21535,6 +21535,7 @@ void Player::_SaveBGData()
 
     m_bgData.m_needSave = false;
 }
+
 #ifdef BUILD_ELUNA
 void Player::ModifyMoney(int32 d)
 {

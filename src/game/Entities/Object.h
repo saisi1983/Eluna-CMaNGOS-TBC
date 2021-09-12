@@ -887,7 +887,7 @@ class WorldObject : public Object
     public:
 #ifdef BUILD_ELUNA
         virtual ~WorldObject();
-		virtual void Update(uint32 update_diff, uint32 /*time_diff*/);
+		virtual void Update(uint32 update_diff);
 #else
 		virtual ~WorldObject() {}
 		virtual void Update(const uint32 /*diff*/) {}

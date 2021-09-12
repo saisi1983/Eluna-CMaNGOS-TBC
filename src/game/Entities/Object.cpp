@@ -1150,7 +1150,7 @@ void WorldObject::CleanupsBeforeDelete()
 }
 
 #ifdef BUILD_ELUNA
-void WorldObject::Update(uint32 update_diff, uint32 /*time_diff*/)
+void WorldObject::Update(uint32 update_diff)
 {
     elunaEvents->Update(update_diff);
 }
