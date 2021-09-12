@@ -41,6 +41,10 @@ if(WIN32)
   set(EXECUTABLE_SRCS ${EXECUTABLE_SRCS} mangosd.rc)
 endif()
 
+include_directories(
+  ${CMAKE_SOURCE_DIR}/dep/lualib
+)
+
 add_executable(${EXECUTABLE_NAME}
   ${EXECUTABLE_SRCS}
 )
@@ -103,6 +107,11 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/mangosd.conf.dist DESTINATION ${CONF_D
 # Define BUILD_PLAYERBOT if need
 if (BUILD_PLAYERBOT)
   add_definitions(-DBUILD_PLAYERBOT)
+endif()
+
+# Define BUILD_ELUNA if needed
+if (BUILD_ELUNA)
+  add_definitions(-DBUILD_ELUNA)
 endif()
 
 if(MSVC)

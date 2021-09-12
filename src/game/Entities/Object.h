@@ -112,6 +112,9 @@ class ChatHandler;
 struct SpellEntry;
 class Spell;
 class GenericTransport;
+#ifdef BUILD_ELUNA
+class ElunaEventProcessor;
+#endif
 
 typedef std::unordered_map<Player*, UpdateData> UpdateDataMapType;
 
@@ -1186,6 +1189,9 @@ class WorldObject : public Object
 
         // Spell mod owner: static player whose spell mods apply to this unit (server-side)
         virtual Player* GetSpellModOwner() const { return nullptr; }
+#ifdef BUILD_ELUNA
+        ElunaEventProcessor* elunaEvents;
+#endif
 
     protected:
         explicit WorldObject();

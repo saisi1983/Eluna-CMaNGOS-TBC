@@ -49,6 +49,8 @@ if(NOT BUILD_ELUNA)
           list(REMOVE_ITEM LIBRARY_SRCS ${TMP_PATH})
       endif ()
   endforeach()
+else()
+add_definitions(-DBUILD_ELUNA -DCMANGOS -DTBC)
 endif()
 
 if(NOT BUILD_PLAYERBOT)

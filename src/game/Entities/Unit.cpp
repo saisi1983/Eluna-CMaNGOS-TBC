@@ -6325,7 +6325,7 @@ FactionTemplateEntry const* Unit::GetFactionTemplateEntry() const
     return entry;
 }
 
-/*bool Unit::IsHostileTo(Unit const* unit) const
+bool Unit::IsHostileTo(Unit const* unit) const
 {
     // always non-hostile to self
     if (unit == this)
@@ -6399,7 +6399,7 @@ FactionTemplateEntry const* Unit::GetFactionTemplateEntry() const
     if (!tester_faction || !target_faction)
         return false;
 
-    if (target->isAttackingPlayer() && tester->IsContestedGuard())
+    if (target->IsInCombat() && tester->IsContestedGuard())
         return true;
 
     // PvC forced reaction and reputation case
@@ -6412,7 +6412,7 @@ FactionTemplateEntry const* Unit::GetFactionTemplateEntry() const
                 return *force <= REP_HOSTILE;
 
             // if faction have reputation then hostile state for tester at 100% dependent from at_war state
-            if (FactionEntry const* raw_target_faction = sFactionStore.LookupEntry(target_faction->faction))
+            if (FactionEntry const* raw_target_faction = sFactionStore.LookupEntry<FactionEntry>(target_faction->faction))
                 if (FactionState const* factionState = ((Player*)tester)->GetReputationMgr().GetState(raw_target_faction))
                     return !!(factionState->Flags & FACTION_FLAG_AT_WAR);
         }
@@ -6427,7 +6427,7 @@ FactionTemplateEntry const* Unit::GetFactionTemplateEntry() const
                 return *force <= REP_HOSTILE;
 
             // apply reputation state
-            FactionEntry const* raw_tester_faction = sFactionStore.LookupEntry(tester_faction->faction);
+            FactionEntry const* raw_tester_faction = sFactionStore.LookupEntry<FactionEntry>(tester_faction->faction);
             if (raw_tester_faction && raw_tester_faction->reputationListID >= 0)
                 return ((Player const*)target)->GetReputationMgr().GetRank(raw_tester_faction) <= REP_HOSTILE;
         }
@@ -6524,7 +6524,7 @@ bool Unit::IsFriendlyTo(Unit const* unit) const
                 return *force >= REP_FRIENDLY;
 
             // if faction have reputation then friendly state for tester at 100% dependent from at_war state
-            if (FactionEntry const* raw_target_faction = sFactionStore.LookupEntry(target_faction->faction))
+            if (FactionEntry const* raw_target_faction = sFactionStore.LookupEntry<FactionEntry>(target_faction->faction))
                 if (FactionState const* factionState = ((Player*)tester)->GetReputationMgr().GetState(raw_target_faction))
                     return !(factionState->Flags & FACTION_FLAG_AT_WAR);
         }
@@ -6539,7 +6539,7 @@ bool Unit::IsFriendlyTo(Unit const* unit) const
                 return *force >= REP_FRIENDLY;
 
             // apply reputation state
-            if (FactionEntry const* raw_tester_faction = sFactionStore.LookupEntry(tester_faction->faction))
+            if (FactionEntry const* raw_tester_faction = sFactionStore.LookupEntry<FactionEntry>(tester_faction->faction))
                 if (raw_tester_faction->reputationListID >= 0)
                     return ((Player const*)target)->GetReputationMgr().GetRank(raw_tester_faction) >= REP_FRIENDLY;
         }
@@ -6555,12 +6555,12 @@ bool Unit::IsHostileToPlayers() const
     if (!my_faction || !my_faction->faction)
         return false;
 
-    FactionEntry const* raw_faction = sFactionStore.LookupEntry(my_faction->faction);
+    FactionEntry const* raw_faction = sFactionStore.LookupEntry<FactionEntry>(my_faction->faction);
     if (raw_faction && raw_faction->reputationListID >= 0)
         return false;
 
     return my_faction->IsHostileToPlayers();
-}*/
+}
 
 bool Unit::IsNeutralToAll() const
 {
@@ -6754,6 +6754,20 @@ void Unit::CombatStopWithPets(bool includingCast, bool includingCombo)
 {
     CombatStop(includingCast, includingCombo);
     CallForAllControlledUnits(CombatStopWithPetsHelper(includingCast, includingCombo), CONTROLLED_PET | CONTROLLED_GUARDIANS | CONTROLLED_CHARM);
+}
+
+struct IsAttackingPlayerHelper
+{
+    explicit IsAttackingPlayerHelper() {}
+    bool operator()(Unit const* unit) const { return unit->isAttackingPlayer(); }
+};
+
+bool Unit::isAttackingPlayer() const
+{
+    if (hasUnitState(UNIT_STAT_MELEE_ATTACKING || UNIT_STAT_CHANNELING))
+        return true;
+
+    return CheckAllControlledUnits(IsAttackingPlayerHelper(), CONTROLLED_PET | CONTROLLED_TOTEMS | CONTROLLED_GUARDIANS | CONTROLLED_CHARM);
 }
 
 void Unit::RemoveAllAttackers()
