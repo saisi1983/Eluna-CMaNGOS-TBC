@@ -44,6 +44,10 @@
 #include "Loot/LootMgr.h"
 #include "Spells/SpellMgr.h"
 #include "MotionGenerators/PathFinder.h"
+#ifdef BUILD_ELUNA
+#include "LuaEngine/LuaEngine.h"
+#include "LuaEngine/ElunaEventMgr.h"
+#endif
 
 Object::Object(): m_updateFlag(0), m_itsNewObject(false)
 {
@@ -1121,6 +1125,9 @@ void Object::ForceValuesUpdateAtIndex(uint16 index)
 }
 
 WorldObject::WorldObject() :
+#ifdef BUILD_ELUNA
+    elunaEvents(NULL),
+#endif
     m_transportInfo(nullptr), m_isOnEventNotified(false),
     m_visibilityData(this), m_currMap(nullptr),
     m_mapId(0), m_InstanceId(0), m_phaseMask(1),
@@ -1128,11 +1135,26 @@ WorldObject::WorldObject() :
 {
 }
 
+#ifdef BUILD_ELUNA
+WorldObject::~WorldObject()
+{
+    delete elunaEvents;
+    elunaEvents = NULL;
+}
+#endif
+
 void WorldObject::CleanupsBeforeDelete()
 {
     m_events.KillAllEvents(false);                      // non-delatable (currently casted spells) will not deleted now but it will deleted at call in Map::RemoveAllObjectsInRemoveList
     RemoveFromWorld();
 }
+
+#ifdef BUILD_ELUNA
+void WorldObject::Update(uint32 update_diff, uint32 /*time_diff*/)
+{
+    elunaEvents->Update(update_diff);
+}
+#endif*/
 
 void WorldObject::_Create(uint32 guidlow, HighGuid guidhigh, uint32 phaseMask)
 {
@@ -1876,7 +1898,22 @@ void WorldObject::SetMap(Map* map)
     // lets save current map's Id/instanceId
     m_mapId = map->GetId();
     m_InstanceId = map->GetInstanceId();
+#ifdef BUILD_ELUNA
+    delete elunaEvents;
+    // On multithread replace this with a pointer to map's Eluna pointer stored in a map
+    elunaEvents = new ElunaEventProcessor(&Eluna::GEluna, this);
+#endif
 }
+
+#ifdef BUILD_ELUNA
+void WorldObject::ResetMap()
+{
+    delete elunaEvents;
+    elunaEvents = NULL;
+
+    m_currMap = NULL;
+}
+#endif
 
 void WorldObject::AddToWorld()
 {

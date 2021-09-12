@@ -111,7 +111,7 @@ endif()
 
 # Define BUILD_ELUNA if needed
 if (BUILD_ELUNA)
-  add_definitions(-DBUILD_ELUNA)
+  add_definitions(-DBUILD_ELUNA -DTBC -DCMANGOS)
 endif()
 
 if(MSVC)

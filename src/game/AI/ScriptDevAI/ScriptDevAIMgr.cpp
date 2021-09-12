@@ -17,6 +17,10 @@
 #include "system/ScriptLoader.h"
 #endif
 
+#ifdef BUILD_ELUNA
+#include "LuaEngine/LuaEngine.h"
+#endif
+
 INSTANTIATE_SINGLETON_1(ScriptDevAIMgr);
 
 void FillSpellSummary();
@@ -139,6 +143,10 @@ void Script::RegisterSelf(bool bReportError)
 
 bool ScriptDevAIMgr::OnGossipHello(Player* pPlayer, Creature* pCreature)
 {
+#ifdef BUILD_ELUNA
+    if (sEluna->OnGossipHello(pPlayer, pCreature))
+        return true;
+#endif
     Script* pTempScript = GetScript(pCreature->GetScriptId());
 
     if (!pTempScript || !pTempScript->pGossipHello)
@@ -151,6 +159,10 @@ bool ScriptDevAIMgr::OnGossipHello(Player* pPlayer, Creature* pCreature)
 
 bool ScriptDevAIMgr::OnGossipHello(Player* pPlayer, GameObject* pGo)
 {
+#ifdef BUILD_ELUNA
+    if (sEluna->OnGossipHello(pPlayer, pGo))
+        return true;
+#endif
     Script* pTempScript = GetScript(pGo->GetGOInfo()->ScriptId);
 
     if (!pTempScript || !pTempScript->pGossipHelloGO)
@@ -170,6 +182,18 @@ bool ScriptDevAIMgr::OnGossipSelect(Player* pPlayer, Creature* pCreature, uint32
     if (!pTempScript)
         return false;
 
+#ifdef BUILD_ELUNA
+    if (code)
+    {
+        if (sEluna->OnGossipSelectCode(pPlayer, pCreature, uiSender, uiAction, code))
+            return true;
+    }
+    else
+    {
+        if (sEluna->OnGossipSelect(pPlayer, pCreature, uiSender, uiAction))
+            return true;
+    }
+#endif
     if (code)
     {
         if (!pTempScript->pGossipSelectWithCode)
@@ -194,7 +218,18 @@ bool ScriptDevAIMgr::OnGossipSelect(Player* pPlayer, GameObject* pGo, uint32 uiS
 
     if (!pTempScript)
         return false;
-
+#ifdef BUILD_ELUNA
+    if (code)
+    {
+        if (sEluna->OnGossipSelectCode(pPlayer, pGo, uiSender, uiAction, code))
+            return true;
+    }
+    else
+    {
+        if (sEluna->OnGossipSelect(pPlayer, pGo, uiSender, uiAction))
+            return true;
+    }
+#endif
     if (code)
     {
         if (!pTempScript->pGossipSelectGOWithCode)
@@ -256,6 +291,11 @@ bool ScriptDevAIMgr::OnQuestAccept(Player* pPlayer, GameObject* pGo, const Quest
 
     pPlayer->GetPlayerMenu()->ClearMenus();
 
+#ifdef BUILD_ELUNA
+    if (sEluna->OnQuestAccept(pPlayer, pGo, pQuest))
+        return true;
+#endif
+
     return pTempScript->pQuestAcceptGO(pPlayer, pGo, pQuest);
 }
 
@@ -267,12 +307,20 @@ bool ScriptDevAIMgr::OnQuestAccept(Player* pPlayer, Item* pItem, Quest const* pQ
         return false;
 
     pPlayer->GetPlayerMenu()->ClearMenus();
+#ifdef BUILD_ELUNA
+    if (sEluna->OnQuestAccept(pPlayer, pItem, pQuest))
+        return true;
+#endif
 
     return pTempScript->pQuestAcceptItem(pPlayer, pItem, pQuest);
 }
 
 bool ScriptDevAIMgr::OnGameObjectUse(Player* pPlayer, GameObject* pGo)
 {
+#ifdef BUILD_ELUNA
+    if (sEluna->OnGameObjectUse(pPlayer, pGo))
+        return true;
+#endif
     Script* pTempScript = GetScript(pGo->GetGOInfo()->ScriptId);
 
     if (!pTempScript || !pTempScript->pGOUse)
@@ -317,6 +365,10 @@ bool ScriptDevAIMgr::OnQuestRewarded(Player* pPlayer, GameObject* pGo, Quest con
 
 bool ScriptDevAIMgr::OnAreaTrigger(Player* pPlayer, AreaTriggerEntry const* atEntry)
 {
+#ifdef BUILD_ELUNA
+    if (sEluna->OnAreaTrigger(pPlayer, atEntry))
+        return true;
+#endif
     Script* pTempScript = GetScript(GetAreaTriggerScriptId(atEntry->id));
 
     if (!pTempScript || !pTempScript->pAreaTrigger)
@@ -340,6 +392,12 @@ UnitAI* ScriptDevAIMgr::GetCreatureAI(Creature* pCreature) const
 {
     Script* pTempScript = GetScript(pCreature->GetScriptId());
 
+#ifdef BUILD_ELUNA
+    // used by eluna
+    if (CreatureAI* luaAI = sEluna->GetAI(pCreature))
+        return luaAI;
+#endif
+
     if (!pTempScript || !pTempScript->GetAI)
         return nullptr;
 
@@ -358,6 +416,10 @@ GameObjectAI* ScriptDevAIMgr::GetGameObjectAI(GameObject* gameobject) const
 
 bool ScriptDevAIMgr::OnItemUse(Player* pPlayer, Item* pItem, SpellCastTargets const& targets)
 {
+#ifdef BUILD_ELUNA
+    if (!sEluna->OnUse(pPlayer, pItem, targets))
+        return true;
+#endif
     Script* pTempScript = GetScript(pItem->GetProto()->ScriptId);
 
     if (!pTempScript || !pTempScript->pItemUse)

@@ -885,9 +885,13 @@ class WorldObject : public Object
         friend struct WorldObjectChangeAccumulator;
 
     public:
-        virtual ~WorldObject() {}
-
-        virtual void Update(const uint32 /*diff*/) {}
+#ifdef BUILD_ELUNA
+        virtual ~WorldObject();
+		virtual void Update(uint32 update_diff, uint32 /*time_diff*/);
+#else
+		virtual ~WorldObject() {}
+		virtual void Update(const uint32 /*diff*/) {}
+#endif
 
         void _Create(uint32 guidlow, HighGuid guidhigh, uint32 phaseMask = 1);
 
@@ -1095,7 +1099,11 @@ class WorldObject : public Object
         void SetMap(Map* map);
         Map* GetMap() const { MANGOS_ASSERT(m_currMap); return m_currMap; }
         // used to check all object's GetMap() calls when object is not in world!
-        virtual void ResetMap() { m_currMap = nullptr; }
+#ifdef BUILD_ELUNA
+		virtual void ResetMap();
+#else
+		virtual void ResetMap() { m_currMap = nullptr; }
+#endif
 
         // obtain terrain data for map where this object belong...
         TerrainInfo const* GetTerrain() const;

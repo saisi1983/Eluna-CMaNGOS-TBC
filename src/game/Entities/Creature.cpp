@@ -47,6 +47,9 @@
 #include "Movement/MoveSplineInit.h"
 #include "Entities/CreatureLinkingMgr.h"
 #include "Maps/SpawnManager.h"
+#ifdef BUILD_ELUNA
+#include "LuaEngine/LuaEngine.h"
+#endif
 
 // apply implementation of the singletons
 #include "Policies/Singleton.h"
@@ -171,9 +174,14 @@ void Creature::CleanupsBeforeDelete()
 
 void Creature::AddToWorld()
 {
+    bool inWorld = IsInWorld();
+
     ///- Register the creature for guid lookup
     if (!IsInWorld())
     {
+#ifdef BUILD_ELUNA
+        sEluna->OnAddToWorld(this);
+#endif
         if (IsUnit())
             GetMap()->GetObjectsStore().insert<Creature>(GetObjectGuid(), (Creature*)this);
         if (GetDbGuid())
@@ -217,6 +225,9 @@ void Creature::RemoveFromWorld()
     ///- Remove the creature from the accessor
     if (IsInWorld())
     {
+#ifdef BUILD_ELUNA
+        sEluna->OnRemoveFromWorld(this);
+#endif
         if (IsUnit())
             GetMap()->GetObjectsStore().erase<Creature>(GetObjectGuid(), (Creature*)nullptr);
         if (GetDbGuid())

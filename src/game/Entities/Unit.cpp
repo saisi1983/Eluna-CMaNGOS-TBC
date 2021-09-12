@@ -50,6 +50,10 @@
 #include "Tools/Formulas.h"
 #include "Entities/Transports.h"
 #include "Anticheat/Anticheat.hpp"
+#ifdef BUILD_ELUNA
+#include "LuaEngine/LuaEngine.h"
+#include "LuaEngine/ElunaEventMgr.h"
+#endif
 
 #ifdef BUILD_METRICS
  #include "Metric/Metric.h"
@@ -482,6 +486,10 @@ void Unit::Update(const uint32 diff)
     _UpdateAura();
     }else
     m_AurasCheck -= p_time;*/
+
+#ifdef BUILD_ELUNA
+    elunaEvents->Update(diff);
+#endif
 
     // WARNING! Order of execution here is important, do not change.
     // Spells must be processed with event system BEFORE they go to _UpdateSpells.
@@ -1098,6 +1106,15 @@ void Unit::Kill(Unit* killer, Unit* victim, DamageEffectType damagetype, SpellEn
         if (UnitAI* ai = killer->AI())
             ai->KilledUnit(victim);
 
+/*#ifdef BUILD_ELUNA
+        if (Creature* killer = ToCreature())
+        {
+            // used by eluna
+            if (Player* killed = victim->ToPlayer())
+                sEluna->OnPlayerKilledByCreature(killer, killed);
+        }
+#endif*/
+
         // Call AI OwnerKilledUnit (for any current summoned minipet/guardian/protector)
         killer->PetOwnerKilledUnit(victim);
     }
@@ -1159,6 +1176,10 @@ void Unit::Kill(Unit* killer, Unit* victim, DamageEffectType damagetype, SpellEn
                 if (OutdoorPvP* outdoorPvP = sOutdoorPvPMgr.GetScript(playerVictim->GetCachedZoneId()))
                     outdoorPvP->HandlePlayerKill(responsiblePlayer, playerVictim);
             }
+#ifdef BUILD_ELUNA
+            // used by eluna
+            sEluna->OnPVPKill(responsiblePlayer, playerVictim);
+#endif
         }
     }
     else                                                // Killed creature
@@ -1344,8 +1365,17 @@ void Unit::JustKilledCreature(Unit* killer, Creature* victim, Player* responsibl
         mapInstance->OnCreatureDeath(victim);
 
     if (responsiblePlayer)                                  // killedby Player, inform BG
+#ifdef BUILD_ELUNA
+    {
         if (BattleGround* bg = responsiblePlayer->GetBattleGround())
             bg->HandleKillUnit(victim, responsiblePlayer);
+        // used by eluna
+        sEluna->OnCreatureKill(responsiblePlayer, victim);
+    }
+#else
+        if (BattleGround* bg = responsiblePlayer->GetBattleGround())
+            bg->HandleKillUnit(victim, responsiblePlayer);
+#endif
 
     // Notify the outdoor pvp script
     if (OutdoorPvP* outdoorPvP = sOutdoorPvPMgr.GetScript(responsiblePlayer ? responsiblePlayer->GetCachedZoneId() : victim->GetZoneId()))
@@ -8628,6 +8658,11 @@ void Unit::SetInCombatState(bool PvP, Unit* enemy)
 
         TriggerAggroLinkingEvent(enemy);
     }
+#ifdef BUILD_ELUNA
+    // used by eluna
+    if (GetTypeId() == TYPEID_PLAYER)
+        sEluna->OnPlayerEnterCombat(ToPlayer(), enemy);
+#endif
 }
 
 void Unit::EngageInCombatWith(Unit* enemy)
@@ -8651,6 +8686,12 @@ void Unit::ClearInCombat()
 {
     RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IN_COMBAT);
     RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PET_IN_COMBAT);
+
+#ifdef BUILD_ELUNA
+    // used by eluna
+    if (GetTypeId() == TYPEID_PLAYER)
+        sEluna->OnPlayerLeaveCombat(ToPlayer());
+#endif
 
     if (GetTypeId() == TYPEID_PLAYER)
         static_cast<Player*>(this)->pvpInfo.inPvPCombat = false;
