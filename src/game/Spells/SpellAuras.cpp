@@ -31,6 +31,7 @@
 #include "Entities/DynamicObject.h"
 #include "Groups/Group.h"
 #include "Entities/UpdateData.h"
+#include "Entities/UpdateMask.h"
 #include "Globals/ObjectAccessor.h"
 #include "Policies/Singleton.h"
 #include "Entities/Totem.h"
@@ -3938,6 +3939,24 @@ void Aura::HandleModPossess(bool apply, bool Real)
         caster->BreakCharmOutgoing(true);
 
         caster->TakePossessOf(target);
+
+        if (Player* playerCaster = caster->IsPlayer() ? static_cast<Player*>(caster) : nullptr)
+        {
+            UpdateMask updateMask;
+            updateMask.SetCount(target->GetValuesCount());
+            target->MarkUpdateFieldsWithFlagForUpdate(updateMask, UF_FLAG_OWNER_ONLY);
+            if (updateMask.HasData())
+            {
+                UpdateData newData;
+                target->BuildValuesUpdateBlockForPlayer(newData, updateMask, playerCaster);
+
+                if (newData.HasData())
+                {
+                    WorldPacket newDataPacket = newData.BuildPacket(0, false);
+                    playerCaster->SendDirectMessage(newDataPacket);
+                }
+            }
+        }
     }
     else
         caster->Uncharm(target);
@@ -4042,6 +4061,24 @@ void Aura::HandleModCharm(bool apply, bool Real)
             caster->BreakCharmOutgoing(true);
 
         caster->TakeCharmOf(target, GetId());
+
+        if (playerCaster)
+        {
+            UpdateMask updateMask;
+            updateMask.SetCount(target->GetValuesCount());
+            target->MarkUpdateFieldsWithFlagForUpdate(updateMask, UF_FLAG_OWNER_ONLY);
+            if (updateMask.HasData())
+            {
+                UpdateData newData;
+                target->BuildValuesUpdateBlockForPlayer(newData, updateMask, playerCaster);
+
+                if (newData.HasData())
+                {
+                    WorldPacket newDataPacket = newData.BuildPacket(0, false);
+                    playerCaster->SendDirectMessage(newDataPacket);
+                }
+            }
+        }
     }
     else
         caster->Uncharm(target, GetId());
@@ -4204,7 +4241,7 @@ void Aura::HandleAuraModStun(bool apply, bool Real)
             target->ModifyAuraState(AURA_STATE_FROZEN, apply);
 
         // Creature specific
-        if (target->GetTypeId() != TYPEID_PLAYER && !target->IsStunned())
+        if (target->IsInWorld() && !target->IsPlayer() && !target->IsStunned())
             target->SetFacingTo(target->GetOrientation());
 
         Unit* caster = GetCaster();
@@ -6585,6 +6622,30 @@ void Aura::HandleAuraEmpathy(bool apply, bool /*Real*/)
     CreatureInfo const* ci = ObjectMgr::GetCreatureTemplate(target->GetEntry());
     if (target->GetTypeId() == TYPEID_PLAYER || (target->GetTypeId() == TYPEID_UNIT && ci && ci->CreatureType == CREATURE_TYPE_BEAST))
         target->ApplyModUInt32Value(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_SPECIALINFO, apply);
+
+    if (apply)
+    {
+        if (Unit* caster = GetCaster())
+        {
+            if (Player* playerCaster = caster->IsPlayer() ? static_cast<Player*>(caster) : nullptr)
+            {
+                UpdateMask updateMask;
+                updateMask.SetCount(target->GetValuesCount());
+                updateMask.SetBit(UNIT_FIELD_HEALTH);
+                updateMask.SetBit(UNIT_FIELD_MAXHEALTH);
+                target->MarkUpdateFieldsWithFlagForUpdate(updateMask, UF_FLAG_SPECIAL_INFO);
+
+                UpdateData newData;
+                target->BuildValuesUpdateBlockForPlayer(newData, updateMask, playerCaster);
+
+                if (newData.HasData())
+                {
+                    WorldPacket newDataPacket = newData.BuildPacket(0, false);
+                    playerCaster->SendDirectMessage(newDataPacket);
+                }
+            }
+        }
+    }
 }
 
 void Aura::HandleAuraUntrackable(bool apply, bool /*Real*/)
@@ -9042,6 +9103,13 @@ void Aura::OnPeriodicCalculateAmount(uint32& amount)
 {
     if (AuraScript* script = GetAuraScript())
         script->OnPeriodicCalculateAmount(this, amount);
+}
+
+void Aura::OnHeartbeat()
+{
+    // TODO: move HB resist here
+    if (AuraScript* script = GetAuraScript())
+        script->OnHeartbeat(this);
 }
 
 void Aura::ForcePeriodicity(uint32 periodicTime)
