@@ -1213,6 +1213,7 @@ void WorldObject::CleanupsBeforeDelete()
 void WorldObject::Update(uint32 update_diff)
 {
     elunaEvents->Update(update_diff);
+    m_heartBeatTimer.Update(update_diff);
 	while (m_heartBeatTimer.Passed())
     {
         m_heartBeatTimer.Reset(m_heartBeatTimer.GetExpiry() + GetHeartbeatDuration());

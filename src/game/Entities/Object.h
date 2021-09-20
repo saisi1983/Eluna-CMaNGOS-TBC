@@ -894,7 +894,7 @@ class WorldObject : public Object
 		virtual void Update(uint32 update_diff);
 #else
 		virtual ~WorldObject() {}
-		virtual void Update(const uint32 /*diff*/) {}
+        virtual void Update(const uint32 /*diff*/);
 #endif
 
         virtual void Heartbeat() {}
