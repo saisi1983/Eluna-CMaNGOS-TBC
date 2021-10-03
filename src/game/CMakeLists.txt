@@ -93,8 +93,10 @@ target_link_libraries(${LIBRARY_NAME}
   PRIVATE shared
   PRIVATE g3dlite
   PRIVATE detour
-  PRIVATE lualib
   PRIVATE ${ZLIB_LIBRARIES}
+if (BUILD_ELUNA)
+  PRIVATE lualib
+endif()
 )
 
 # include additionals headers
@@ -105,8 +107,10 @@ set(ADDITIONAL_INCLUDE_DIRS
   ${CMAKE_CURRENT_SOURCE_DIR}/BattleGround
   ${CMAKE_CURRENT_SOURCE_DIR}/OutdoorPvP
   ${CMAKE_CURRENT_SOURCE_DIR}/PlayerBot
-  ${CMAKE_SOURCE_DIR}/dep/lualib
   ${CMAKE_BINARY_DIR}
+if (BUILD_ELUNA)
+  ${CMAKE_SOURCE_DIR}/dep/lualib
+endif()
 )
 
 target_include_directories(${LIBRARY_NAME}
