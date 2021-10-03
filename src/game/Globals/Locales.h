@@ -41,6 +41,8 @@ enum LocaleConstant : uint8
 
 LocaleConstant GetLocaleByName(const std::string& name);
 
+typedef std::vector<std::string> StringVector;
+
 extern char const* localeNames[MAX_LOCALE];
 
 struct LocaleNameStr
