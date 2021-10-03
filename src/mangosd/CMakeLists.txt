@@ -41,11 +41,9 @@ if(WIN32)
   set(EXECUTABLE_SRCS ${EXECUTABLE_SRCS} mangosd.rc)
 endif()
 
-if (BUILD_ELUNA)
-  include_directories(
-    ${CMAKE_SOURCE_DIR}/dep/lualib
-  )
-endif()
+include_directories(
+  ${CMAKE_SOURCE_DIR}/dep/lualib
+)
 
 add_executable(${EXECUTABLE_NAME}
   ${EXECUTABLE_SRCS}
