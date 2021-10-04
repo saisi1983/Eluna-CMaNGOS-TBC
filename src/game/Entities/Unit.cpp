@@ -8737,6 +8737,33 @@ void Unit::HandleExitCombat(bool customLeash, bool pvpCombat)
     CallForAllControlledUnits([customLeash, pvpCombat](Unit* unit) { unit->HandleExitCombat(customLeash, pvpCombat); }, CONTROLLED_PET | CONTROLLED_GUARDIANS | CONTROLLED_CHARM | CONTROLLED_TOTEMS);
 }
 
+bool Unit::IsTargetableForAttack(bool inverseAlive /*=false*/) const
+{
+    if (GetTypeId() == TYPEID_PLAYER && ((Player*)this)->IsGameMaster())
+    {
+        return false;
+    }
+
+    if (HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_NOT_SELECTABLE))
+    {
+        return false;
+    }
+
+    // to be removed if unit by any reason enter combat
+    if (HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER))
+    {
+        return false;
+    }
+
+    // inversealive is needed for some spells which need to be casted at dead targets (aoe)
+    if (IsAlive() == inverseAlive)
+    {
+        return false;
+    }
+
+    return IsInWorld() && !hasUnitState(UNIT_STAT_FEIGN_DEATH) && !IsTaxiFlying();
+}
+
 int32 Unit::ModifyHealth(int32 dVal)
 {
     if (dVal == 0)

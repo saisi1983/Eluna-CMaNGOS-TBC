@@ -580,6 +580,8 @@ void World::LoadConfigSettings(bool reload)
     setConfig(CONFIG_UINT32_GM_INVISIBLE_AURA, "GM.InvisibleAura", 37800);
     setConfig(CONFIG_BOOL_GM_TICKETS_QUEUE_STATUS, "GM.TicketsQueueStatus", true);
 
+    setConfig(CONFIG_UINT32_GROUP_VISIBILITY, "Visibility.GroupMode", 0);
+
     setConfig(CONFIG_UINT32_FOGOFWAR_STEALTH, "Visibility.FogOfWar.Stealth", 0);
     setConfig(CONFIG_UINT32_FOGOFWAR_HEALTH, "Visibility.FogOfWar.Health", 0);
     setConfig(CONFIG_UINT32_FOGOFWAR_STATS, "Visibility.FogOfWar.Stats", 0);
@@ -680,6 +682,7 @@ void World::LoadConfigSettings(bool reload)
     setConfigMinMax(CONFIG_FLOAT_GHOST_RUN_SPEED_WORLD,   "Death.Ghost.RunSpeed.World", 1.0f, 0.1f, 10.0f);
     setConfigMinMax(CONFIG_FLOAT_GHOST_RUN_SPEED_BG,      "Death.Ghost.RunSpeed.Battleground", 1.0f, 0.1f, 10.0f);
 
+    setConfig(CONFIG_FLOAT_THREAT_RADIUS, "ThreatRadius", 100.0f);
     setConfig(CONFIG_FLOAT_LEASH_RADIUS, "LeashRadius", 30.f);
     setConfigMin(CONFIG_UINT32_CREATURE_RESPAWN_AGGRO_DELAY, "CreatureRespawnAggroDelay", 5000, 0);
     setConfig(CONFIG_UINT32_CREATURE_PICKPOCKET_RESTOCK_DELAY, "CreaturePickpocketRestockDelay", 600);

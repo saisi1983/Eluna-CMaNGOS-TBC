@@ -933,6 +933,11 @@ TalentsInspecting = 1
 ###################################################################################################################
 # CREATURE AND GAMEOBJECT SETTINGS
 #
+#    ThreatRadius
+#        Radius for creature to evade after being pulled away from combat start point
+#        If ThreatRadius is less than creature aggro radius then aggro radius will be used
+#        Default: 100 yards
+#
 #    Rate.Creature.Aggro
 #        Aggro radius percent or off.
 #        Default: 1   - 100%
@@ -1049,6 +1054,7 @@ TalentsInspecting = 1
 #
 ###################################################################################################################
 
+ThreatRadius = 100
 Rate.Creature.Aggro = 1
 CreatureRespawnAggroDelay = 5000
 LeashRadius = 30
@@ -1284,6 +1290,12 @@ GM.TicketsQueueStatus    = 1
 ###################################################################################################################
 # VISIBILITY AND RADIUSES
 #
+#    Visibility.GroupMode
+#        Group visibility modes
+#        Default: 0 (standard setting: only members from same group can 100% auto detect invisible player)
+#                 1 (raid members 100% auto detect invisible player from same raid)
+#                 2 (players from same team can 100% auto detect invisible player)
+#
 #    Visibility.FogOfWar.Stealth
 #        Sets visibility mode for invisible units. Fog Of War settings are not applied to GMs.
 #        Default: 0 (standard setting: players can see invisibile units in their own group)
@@ -1320,6 +1332,7 @@ GM.TicketsQueueStatus    = 1
 #
 ###################################################################################################################
 
+Visibility.GroupMode        = 0
 Visibility.FogOfWar.Stealth = 0
 Visibility.FogOfWar.Health  = 0
 Visibility.FogOfWar.Stats   = 0

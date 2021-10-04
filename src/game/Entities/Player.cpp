@@ -2590,6 +2590,25 @@ void Player::SetGMVisible(bool on)
     }
 }
 
+bool Player::IsGroupVisibleFor(Player* player) const
+{
+    switch (sWorld.getConfig(CONFIG_UINT32_GROUP_VISIBILITY))
+    {
+    default:
+        return IsInSameGroupWith(player);
+    case 1:
+        return IsInSameRaidWith(player);
+    case 2:
+        return GetTeam() == player->GetTeam();
+    }
+}
+
+bool Player::IsInSameGroupWith(Player const* player) const
+{
+    return (player == this || (GetGroup() != NULL &&
+        GetGroup()->SameSubGroup(this, player)));
+}
+
 ///- If the player is invited, remove him. If the group if then only 1 person, disband the group.
 void Player::UninviteFromGroup()
 {
@@ -8610,7 +8629,7 @@ uint32 Player::GetItemCount(uint32 item, bool inBankAlso, Item* skipItem) const
     return count;
 }
 
-/*Item* Player::GetItemByEntry(uint32 item) const
+Item* Player::GetItemByEntry(uint32 item) const
 {
     for (int i = EQUIPMENT_SLOT_START; i < INVENTORY_SLOT_ITEM_END; ++i)
         if (Item* pItem = GetItemByPos(INVENTORY_SLOT_BAG_0, i))
@@ -8623,7 +8642,7 @@ uint32 Player::GetItemCount(uint32 item, bool inBankAlso, Item* skipItem) const
                 return itemPtr;
 
     return NULL;
-}*/
+}
 
 Item* Player::GetItemByGuid(ObjectGuid guid) const
 {
@@ -14143,6 +14162,28 @@ void Player::RewardPlayerAndGroupAtEventExplored(uint32 questId, WorldObject con
     }
     else
         AreaExploredOrEventHappens(questId);
+}
+
+// not used in mangosd, function for external script library
+void Player::GroupEventHappens(uint32 quest_id, WorldObject const* pEventObject)
+{
+    if (Group* pGroup = GetGroup())
+    {
+        for (GroupReference* itr = pGroup->GetFirstMember(); itr != NULL; itr = itr->next())
+        {
+            Player* pGroupGuy = itr->getSource();
+
+            // for any leave or dead (with not released body) group member at appropriate distance
+            if (pGroupGuy && pGroupGuy->IsAtGroupRewardDistance(pEventObject) && !pGroupGuy->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_GHOST))
+            {
+                pGroupGuy->AreaExploredOrEventHappens(quest_id);
+            }
+        }
+    }
+    else
+    {
+        AreaExploredOrEventHappens(quest_id);
+    }
 }
 
 void Player::ItemAddedQuestCheck(uint32 entry, uint32 count)
@@ -21853,6 +21894,16 @@ void Player::AddCooldown(SpellEntry const& spellEntry, ItemPrototype const* item
             SendDirectMessage(data);
             sLog.outDebug("Sending SMSG_COOLDOWN_EVENT with spell id = %u", spellEntry.Id);
         }
+    }
+}
+
+void Player::RemoveSpellCooldown(uint32 spell_id, bool update /* = false */)
+{
+    m_spellCooldowns.erase(spell_id);
+
+    if (update)
+    {
+        SendClearCooldown(spell_id, this);
     }
 }
 

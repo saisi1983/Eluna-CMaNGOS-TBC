@@ -1693,6 +1693,8 @@ class Unit : public WorldObject
 
         bool isFrozen() const;
 
+        bool IsTargetableForAttack(bool inverseAlive = false) const;
+
         virtual bool IsInWater() const;
         bool IsInSwimmableWater() const;
         virtual bool IsUnderwater() const;
@@ -1799,6 +1801,16 @@ class Unit : public WorldObject
         DeathState GetDeathState() const { return m_deathState; }
         virtual void SetDeathState(DeathState s);           // overwritten in Creature/Player/Pet
 
+        // Charm: temporary pet unit guid
+        ObjectGuid const& GetCharmGuid() const { return GetGuidValue(UNIT_FIELD_CHARM); }
+        void SetCharmGuid(ObjectGuid const& charm) { SetGuidValue(UNIT_FIELD_CHARM, charm); }
+        // Charmer: temporary owner unit guid [nameplate]
+        ObjectGuid const& GetCharmerGuid() const { return GetGuidValue(UNIT_FIELD_CHARMEDBY); }
+        void SetCharmerGuid(ObjectGuid const& owner) { SetGuidValue(UNIT_FIELD_CHARMEDBY, owner); }
+        // Creator: permanent owner unit guid for npc pets or non-pet units [nameplate] (do not use: managed by SetOwnerGuid/GetOwnerGuid)
+        ObjectGuid const& GetCreatorGuid() const { return GetGuidValue(UNIT_FIELD_CREATEDBY); }
+        void SetCreatorGuid(ObjectGuid const& creator) { SetGuidValue(UNIT_FIELD_CREATEDBY, creator); }
+
         bool IsTargetUnderControl(Unit const& target) const;
 
         // Convenience checkers/getters/setters counterparts for some of the protected Unit guid fields
@@ -1813,6 +1825,15 @@ class Unit : public WorldObject
         Unit* GetCharm(WorldObject const* pov = nullptr) const;
         Unit* GetCharmer(WorldObject const* pov = nullptr) const;
         Unit* GetCharmerOrOwner() const { return GetCharmerGuid() ? GetCharmer() : GetOwner(); }
+        ObjectGuid const& GetCharmerOrOwnerGuid() const { return GetCharmerGuid() ? GetCharmerGuid() : GetOwnerGuid(); }
+        ObjectGuid const& GetCharmerOrOwnerOrOwnGuid() const
+        {
+            if (ObjectGuid const& guid = GetCharmerOrOwnerGuid())
+            {
+                return guid;
+            }
+            return GetObjectGuid();
+        }
         Unit* GetCreator(WorldObject const* pov = nullptr) const;
         Unit* GetTarget(WorldObject const* pov = nullptr) const;
         Unit* GetChannelObject(WorldObject const* pov = nullptr) const;
@@ -1863,6 +1884,7 @@ class Unit : public WorldObject
         Pet* FindGuardianWithEntry(uint32 entry);
         uint32 CountGuardiansWithEntry(uint32 entry);
 
+        bool IsCharmed() const { return !GetCharmerGuid().IsEmpty(); }
         CharmInfo* GetCharmInfo() const { return m_charmInfo; }
         virtual CharmInfo* InitCharmInfo(Unit* charm);
         virtual void DeleteCharmInfo() { delete m_charmInfo; m_charmInfo = nullptr; }
@@ -2491,21 +2513,15 @@ class Unit : public WorldObject
         float m_baseSpeedRun;
 
         // Protected unit guid fields getters/setters
-        // Charm: temporary pet unit guid
-        ObjectGuid const& GetCharmGuid() const { return GetGuidValue(UNIT_FIELD_CHARM); }
-        void SetCharmGuid(ObjectGuid const& charm) { SetGuidValue(UNIT_FIELD_CHARM, charm); }
+        
         // Summon: permanent pet unit guid (do not use: managed by SetPetGuid/GetPetGuid)
         ObjectGuid const& GetSummonGuid() const { return GetGuidValue(UNIT_FIELD_SUMMON); }
         void SetSummonGuid(ObjectGuid const& summon) { SetGuidValue(UNIT_FIELD_SUMMON, summon); }
-        // Charmer: temporary owner unit guid [nameplate]
-        ObjectGuid const& GetCharmerGuid() const { return GetGuidValue(UNIT_FIELD_CHARMEDBY); }
-        void SetCharmerGuid(ObjectGuid const& owner) { SetGuidValue(UNIT_FIELD_CHARMEDBY, owner); }
+        
         // Summoner: permanent owner unit guid for player pets [nameplate] (do not use: managed by SetOwnerGuid/GetOwnerGuid)
         ObjectGuid const& GetSummonerGuid() const { return GetGuidValue(UNIT_FIELD_SUMMONEDBY); }
         void SetSummonerGuid(ObjectGuid const& owner) { SetGuidValue(UNIT_FIELD_SUMMONEDBY, owner); }
-        // Creator: permanent owner unit guid for npc pets or non-pet units [nameplate] (do not use: managed by SetOwnerGuid/GetOwnerGuid)
-        ObjectGuid const& GetCreatorGuid() const { return GetGuidValue(UNIT_FIELD_CREATEDBY); }
-        void SetCreatorGuid(ObjectGuid const& creator) { SetGuidValue(UNIT_FIELD_CREATEDBY, creator); }
+        
         // Target: current target guid as advertised on unit frames (also known as selection)
         ObjectGuid const& GetTargetGuid() const { return GetGuidValue(UNIT_FIELD_TARGET); }
         void SetTargetGuid(ObjectGuid const& targetGuid) { SetGuidValue(UNIT_FIELD_TARGET, targetGuid); }
