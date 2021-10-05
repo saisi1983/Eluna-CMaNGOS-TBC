@@ -21901,7 +21901,7 @@ void Player::RemoveSpellCooldown(uint32 spell_id, bool updateClient /* = false *
 {
     m_spellCooldowns.erase(spell_id);
 
-    if (update)
+    if (updateClient)
     {
         SendClearCooldown(spell_id, this);
     }
