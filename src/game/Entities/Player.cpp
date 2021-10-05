@@ -21897,7 +21897,7 @@ void Player::AddCooldown(SpellEntry const& spellEntry, ItemPrototype const* item
     }
 }
 
-void Player::RemoveSpellCooldown(uint32 spell_id, bool update /* = false */)
+void Player::RemoveSpellCooldown(uint32 spell_id, bool updateClient /* = false */)
 {
     m_spellCooldowns.erase(spell_id);
 
