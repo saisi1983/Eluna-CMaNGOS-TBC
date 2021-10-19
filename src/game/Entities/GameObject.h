@@ -728,6 +728,8 @@ class GameObject : public WorldObject
         }
         uint32 GetSpellId() const { return m_spellId;}
 
+        void ForcedDespawn(uint32 timeMSToDespawn = 0);
+
         time_t GetRespawnTime() const { return m_respawnTime; }
         time_t GetRespawnTimeEx() const
         {
@@ -949,5 +951,17 @@ class GameObject : public WorldObject
 
         GridReference<GameObject> m_gridRef;
 };
+
+class ForcedDespawnDelayGameObjectEvent : public BasicEvent
+{
+    public:
+        ForcedDespawnDelayGameObjectEvent(GameObject& owner) : BasicEvent(), m_owner(owner) { }
+        bool Execute(uint64 e_time, uint32 p_time) override;
+
+    private:
+        GameObject& m_owner;
+        bool m_onlyAlive;
+};
+
 
 #endif

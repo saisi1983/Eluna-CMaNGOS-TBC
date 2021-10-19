@@ -2971,13 +2971,13 @@ void Player::InitStatsForLevel(bool reapplyMods)
 
     // cleanup unit flags (will be re-applied if need at aura load).
     RemoveFlag(UNIT_FIELD_FLAGS,
-               UNIT_FLAG_UNK_0 | UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_CLIENT_CONTROL_LOST | UNIT_FLAG_NOT_ATTACKABLE_1 |
+               UNIT_FLAG_UNK_0 | UNIT_FLAG_SPAWNING | UNIT_FLAG_CLIENT_CONTROL_LOST | UNIT_FLAG_NOT_ATTACKABLE_1 |
                UNIT_FLAG_IMMUNE_TO_PLAYER | UNIT_FLAG_IMMUNE_TO_NPC    | UNIT_FLAG_LOOTING          |
                UNIT_FLAG_PET_IN_COMBAT  | UNIT_FLAG_SILENCED     | UNIT_FLAG_PACIFIED         |
                UNIT_FLAG_STUNNED        | UNIT_FLAG_IN_COMBAT    | UNIT_FLAG_DISARMED         |
                UNIT_FLAG_CONFUSED       | UNIT_FLAG_FLEEING      | UNIT_FLAG_POSSESSED        |
                UNIT_FLAG_NOT_SELECTABLE | UNIT_FLAG_SKINNABLE    | UNIT_FLAG_MOUNT            |
-               UNIT_FLAG_TAXI_FLIGHT    | UNIT_FLAG_UNK_29);
+               UNIT_FLAG_TAXI_FLIGHT    | UNIT_FLAG_PREVENT_ANIM);
     SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);    // must be set
 
     // cleanup player flags (will be re-applied if need at aura load), to avoid have ghost flag without ghost aura, for example.
@@ -12199,7 +12199,7 @@ void Player::SendNewItem(Item* item, uint32 count, bool received, bool created, 
 /***                    GOSSIP SYSTEM                  ***/
 /*********************************************************/
 
-void Player::PrepareGossipMenu(WorldObject* pSource, uint32 menuId)
+void Player::PrepareGossipMenu(WorldObject* pSource, uint32 menuId, bool forceQuests)
 {
     m_playerMenu->ClearMenus();
 
@@ -12210,7 +12210,7 @@ void Player::PrepareGossipMenu(WorldObject* pSource, uint32 menuId)
     Gender gender = GENDER_MALE;
 
     // prepares quest menu when true
-    bool canSeeQuests = menuId == GetDefaultGossipMenuForSource(pSource);
+    bool canSeeQuests = menuId == GetDefaultGossipMenuForSource(pSource) || forceQuests;
 
     // if canSeeQuests (the default, top level menu) and no menu options exist for this, use options from default options
     if (pMenuItemBounds.first == pMenuItemBounds.second && canSeeQuests)
@@ -15660,7 +15660,7 @@ void Player::_LoadAuras(QueryResult* result, uint32 timediff)
                 continue;
             }
 
-            if (remaintime != -1 && !IsPositiveSpell(spellproto))
+            if (remaintime != -1 && (spellproto->HasAttribute(SPELL_ATTR_EX4_AURA_EXPIRES_OFFLINE) || !IsPositiveSpell(spellproto)))
             {
                 if (remaintime / IN_MILLISECONDS <= int32(timediff))
                     continue;
@@ -20142,7 +20142,7 @@ void Player::UpdateForQuestWorldObjects()
         if (m_clientGUID.IsGameObject())
         {
             if (GameObject* obj = GetMap()->GetGameObject(m_clientGUID))
-                obj->BuildValuesUpdateBlockForPlayer(updateData, this);
+                obj->BuildValuesUpdateBlockForPlayerWithFlags(updateData, this, UF_FLAG_DYNAMIC);
         }
     }
     for (size_t i = 0; i < updateData.GetPacketCount(); ++i)
@@ -20161,11 +20161,8 @@ void Player::UpdateEverything()
     for (const auto guid : m_clientGUIDs)
         if (WorldObject* obj = GetMap()->GetWorldObject(guid))
             obj->BuildForcedValuesUpdateBlockForPlayer(&updateData, this);
-    for (size_t i = 0; i < updateData.GetPacketCount(); ++i)
-    {
-        WorldPacket packet = updateData.BuildPacket(i);
-        GetSession()->SendPacket(packet);
-    }
+
+    updateData.SendData(*GetSession());
 }
 
 void Player::SummonIfPossible(bool agree, ObjectGuid guid)

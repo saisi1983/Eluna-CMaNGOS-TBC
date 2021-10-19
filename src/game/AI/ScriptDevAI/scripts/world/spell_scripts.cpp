@@ -771,6 +771,26 @@ struct Drink : public DrinkAnimation
     }
 };
 
+struct spell_effect_summon_no_follow_movement : public SpellScript
+{
+    void OnSummon(Spell* spell, Creature* summon) const override
+    {
+        summon->AI()->SetFollowMovement(false);
+    }
+};
+
+struct SpellHasteHealerTrinket : public AuraScript
+{
+    bool OnCheckProc(Aura* /*aura*/, ProcExecutionData& data) const override
+    {
+        // should only proc off of direct heals or HoT applications
+        if (data.spell && (data.isHeal || IsSpellHaveAura(data.spellInfo, SPELL_AURA_PERIODIC_HEAL)))
+            return true;
+
+        return false;
+    }
+};
+
 void AddSC_spell_scripts()
 {
     Script* pNewScript = new Script;
@@ -802,4 +822,6 @@ void AddSC_spell_scripts()
     RegisterAuraScript<FoodAnimation>("spell_food_animation");
     RegisterAuraScript<DrinkAnimation>("spell_drink_animation");
     RegisterAuraScript<Drink>("spell_drink");
+    RegisterSpellScript<spell_effect_summon_no_follow_movement>("spell_effect_summon_no_follow_movement");
+    RegisterAuraScript<SpellHasteHealerTrinket>("spell_spell_haste_healer_trinket");
 }

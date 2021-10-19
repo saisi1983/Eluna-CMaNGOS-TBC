@@ -256,7 +256,7 @@ enum SpellAttributesEx6
     SPELL_ATTR_EX6_UNK10                       = 0x00000400,// 10 TODO: Investigate from TC
     SPELL_ATTR_EX6_NOT_IN_RAID_INSTANCE        = 0x00000800,// 11 not usable in raid instance
     SPELL_ATTR_EX6_UNK12                       = 0x00001000,// 12 for auras SPELL_AURA_TRACK_CREATURES, SPELL_AURA_TRACK_RESOURCES and SPELL_AURA_TRACK_STEALTHED select non-stacking tracking spells
-    SPELL_ATTR_EX6_CAN_TARGET_INVISIBLE        = 0x00002000,// 13 Can target invisible units
+    SPELL_ATTR_EX6_IGNORE_PHASE_SHIFT          = 0x00002000,// 13 Can target in different phase
     SPELL_ATTR_EX6_UNK14                       = 0x00004000,// 14
     SPELL_ATTR_EX6_UNK15                       = 0x00008000,// 15 not set in 3.0.3
     SPELL_ATTR_EX6_UNK16                       = 0x00010000,// 16
@@ -479,7 +479,7 @@ enum SpellAuraInterruptFlags // also used for ChannelInterruptFlags
     AURA_INTERRUPT_FLAG_CAST                        = 0x00000004,   // 2    removed by any cast
     AURA_INTERRUPT_FLAG_MOVE                        = 0x00000008,   // 3    removed by any movement
     AURA_INTERRUPT_FLAG_TURNING                     = 0x00000010,   // 4    removed by any turning
-    AURA_INTERRUPT_FLAG_ENTER_COMBAT                = 0x00000020,   // 5    removed by entering combat
+    AURA_INTERRUPT_FLAG_ANIM_CANCELS                = 0x00000020,   // 5    removed by anim
     AURA_INTERRUPT_FLAG_NOT_MOUNTED                 = 0x00000040,   // 6    removed by unmounting
     AURA_INTERRUPT_FLAG_NOT_ABOVEWATER              = 0x00000080,   // 7    removed by entering water
     AURA_INTERRUPT_FLAG_NOT_UNDERWATER              = 0x00000100,   // 8    removed by leaving water

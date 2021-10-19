@@ -49,6 +49,8 @@ class CombatAI : public ScriptedAI, public CombatActions
         }
         void KilledUnit(Unit* /*victim*/) override;
 
+        void AddUnreachabilityCheck(); // use in constructor
+
         void UpdateAI(const uint32 diff) override;
     private:
         ObjectGuid m_storedTarget;
@@ -57,6 +59,8 @@ class CombatAI : public ScriptedAI, public CombatActions
         bool m_onKillCooldown;
 
         bool m_stopTargeting;
+
+        bool m_teleportUnreachable;
 };
 
 // Implementation is identical to EAI
@@ -89,6 +93,8 @@ class RangedCombatAI : public CombatAI
         virtual CanCastResult DoCastSpellIfCan(Unit* target, uint32 spellId, uint32 castFlags = 0) override;
 
         void UpdateAI(const uint32 diff) override;
+
+        bool IsMainSpellPrevented(SpellEntry const* spellInfo) const;
     private:
         bool m_rangedMode;
         RangeModeType m_rangedModeSetting;

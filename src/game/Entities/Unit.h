@@ -471,7 +471,7 @@ enum UnitVisibility
 enum UnitFlags
 {
     UNIT_FLAG_UNK_0                 = 0x00000001,           // Movement checks disabled, likely paired with loss of client control packet. We use it to add custom cliffwalking to GM mode until actual usecases will be known.
-    UNIT_FLAG_NON_ATTACKABLE        = 0x00000002,           // not attackable
+    UNIT_FLAG_SPAWNING              = 0x00000002,           // Spawning in - other uses are wrong
     UNIT_FLAG_CLIENT_CONTROL_LOST   = 0x00000004,           // Generic unspecified loss of control initiated by server script, movement checks disabled, paired with loss of client control packet.
     UNIT_FLAG_PLAYER_CONTROLLED     = 0x00000008,           // players, pets, totems, guardians, companions, charms, any units associated with players
     UNIT_FLAG_RENAME                = 0x00000010,
@@ -499,7 +499,7 @@ enum UnitFlags
     UNIT_FLAG_SKINNABLE             = 0x04000000,
     UNIT_FLAG_MOUNT                 = 0x08000000,
     UNIT_FLAG_UNK_28                = 0x10000000,
-    UNIT_FLAG_UNK_29                = 0x20000000,           // used in Feing Death spell
+    UNIT_FLAG_PREVENT_ANIM          = 0x20000000,           // used in Feing Death spell
     UNIT_FLAG_SHEATHE               = 0x40000000,
     UNIT_FLAG_IMMUNE                = 0x80000000
 };
@@ -823,11 +823,11 @@ enum CurrentSpellTypes
     CURRENT_MELEE_SPELL             = 0,
     CURRENT_GENERIC_SPELL           = 1,
     CURRENT_AUTOREPEAT_SPELL        = 2,
-    CURRENT_CHANNELED_SPELL         = 3
+    CURRENT_CHANNELED_SPELL         = 3,
+    CURRENT_MAX_SPELL
 };
 
 #define CURRENT_FIRST_NON_MELEE_SPELL 1
-#define CURRENT_MAX_SPELL             4
 
 enum ActiveStates
 {
@@ -1474,7 +1474,7 @@ class Unit : public WorldObject
         void SetVisFlags(uint8 flags) { SetByteFlag(UNIT_FIELD_BYTES_1, UNIT_BYTES_1_OFFSET_VIS_FLAGS, flags); }
         void RemoveVisFlags(uint8 flags) { RemoveByteFlag(UNIT_FIELD_BYTES_1, UNIT_BYTES_1_OFFSET_VIS_FLAGS, flags); }
 
-        bool IsMounted() const { return HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNT); }
+        bool IsMounted() const { return HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNT); } // not used with creature non-aura mounts
         uint32 GetMountID() const { return GetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID); }
         virtual bool Mount(uint32 displayid, const Aura* aura = nullptr);
         virtual bool Unmount(const Aura* aura = nullptr);
@@ -1917,7 +1917,7 @@ class Unit : public WorldObject
         void RemoveAurasDueToSpellBySteal(SpellAuraHolder* holder, Unit* stealer);
         void RemoveAurasDueToSpellByCancel(uint32 spellId);
         void RemoveAurasTriggeredBySpell(uint32 spellId, ObjectGuid casterGuid = ObjectGuid());
-        void RemoveAuraStack(uint32 spellId);
+        void RemoveAuraStack(uint32 spellId, int32 modifier = -1);
         void RemoveAuraCharge(uint32 spellId);
 
         // removing unknown aura stacks by diff reasons and selections
@@ -1986,6 +1986,8 @@ class Unit : public WorldObject
         // set withDelayed to true to interrupt delayed spells too
         // delayed+channeled spells are always interrupted
         void InterruptNonMeleeSpells(bool withDelayed, uint32 spell_id = 0);
+        void InterruptSpellsWithChannelFlags(uint32 flags);
+        void InterruptSpellsAndAurasWithInterruptFlags(uint32 flags);
 
         Spell* GetCurrentSpell(CurrentSpellTypes spellType) const { return m_currentSpells[spellType]; }
         //Spell* GetCurrentSpell(uint32 spellType) const { return m_currentSpells[spellType]; }
@@ -2068,7 +2070,7 @@ class Unit : public WorldObject
         void UpdateVisibilityAndView() override;            // overwrite WorldObject::UpdateVisibilityAndView()
 
         // common function for visibility checks for player/creatures with detection code
-        bool IsVisibleForOrDetect(Unit const* u, WorldObject const* viewPoint, bool detect, bool inVisibleList = false, bool is3dDistance = true, bool spell = false) const;     
+        bool IsVisibleForOrDetect(Unit const* u, WorldObject const* viewPoint, bool detect, bool inVisibleList = false, bool is3dDistance = true, bool spell = false, bool ignorePhase = false) const;     
 
         // virtual functions for all world objects types
         bool isVisibleForInState(Player const* u, WorldObject const* viewPoint, bool inVisibleList) const override;
@@ -2241,6 +2243,20 @@ class Unit : public WorldObject
         void KnockBackWithAngle(float angle, float horizontalSpeed, float verticalSpeed);
 
         bool HasHoverAura() const { return HasAuraType(SPELL_AURA_HOVER); }
+        template<typename Func>
+        bool HasAuraWithCondition(Func const& func) const
+        {
+            Unit::SpellAuraHolderMap const& holders = GetSpellAuraHolderMap();
+            for (const auto& holder : holders)
+            {
+                if (func(holder.second))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
 
         void _RemoveAllAuraMods();
         void _ApplyAllAuraMods();
@@ -2359,6 +2375,8 @@ class Unit : public WorldObject
         // Uncharm (physically revert the charm effect) the unit and reset player control if required
         void Uncharm(Unit* charmed, uint32 spellId = 0);
 
+        void RemoveUnattackableTargets(Unit* charmer = nullptr);
+
         // Combat prevention
         bool CanEnterCombat() const { return m_canEnterCombat && !GetCombatManager().IsEvadingHome(); }
         void SetCanEnterCombat(bool can) { m_canEnterCombat = can; }
@@ -2379,7 +2397,7 @@ class Unit : public WorldObject
         virtual CombatData* GetCombatData() { return m_combatData; }
 
         virtual void SetBaseWalkSpeed(float speed) { m_baseSpeedWalk = speed; }
-        virtual void SetBaseRunSpeed(float speed) { m_baseSpeedRun = speed; }
+        virtual void SetBaseRunSpeed(float speed, bool force = true) { m_baseSpeedRun = speed; }
         float GetBaseRunSpeed() { return m_baseSpeedRun; }
 
         bool IsSpellProccingHappening() const { return m_spellProcsHappening; }

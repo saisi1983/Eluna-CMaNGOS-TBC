@@ -300,7 +300,7 @@ pAuraHandler AuraHandler[TOTAL_AURAS] =
     &Aura::HandleModSpellHealingPercentFromAttackPower,     //238 SPELL_AURA_MOD_SPELL_HEALING_OF_ATTACK_POWER implemented in Unit::SpellBaseHealingBonusDone
     &Aura::HandleAuraModScale,                              //239 SPELL_AURA_MOD_SCALE_2 only in Noggenfogger Elixir (16595) before 2.3.0 aura 61
     &Aura::HandleAuraModExpertise,                          //240 SPELL_AURA_MOD_EXPERTISE
-    &Aura::HandleForceMoveForward,                          //241 Forces the caster to move forward
+    &Aura::HandleForceMoveForward,                          //241 SPELL_AURA_FORCE_MOVE_FORWARD Forces the caster to move forward
     &Aura::HandleUnused,                                    //242 unused
     &Aura::HandleFactionOverride,                           //243 SPELL_AURA_FACTION_OVERRIDE
     &Aura::HandleComprehendLanguage,                        //244 SPELL_AURA_COMPREHEND_LANGUAGE
@@ -564,7 +564,7 @@ void AreaAura::Update(uint32 diff)
                 owner = caster;
             UnitList targets;
 
-            switch (m_areaAuraType)
+            switch (m_areaAuraType) // TODO: Unify with SetTargetMap
             {
                 case AREA_AURA_PARTY:
                 {
@@ -583,10 +583,10 @@ void AreaAura::Update(uint32 diff)
                                 Player* Target = itr->getSource();
                                 if (Target && Target->IsAlive() && Target->GetSubGroup() == subgroup && caster->CanAssistSpell(Target, GetSpellProto()))
                                 {
-                                    if (caster->IsWithinDistInMap(Target, m_radius))
+                                    if (caster->IsWithinDistInMap(Target, m_radius, true, GetSpellProto()->HasAttribute(SPELL_ATTR_EX6_IGNORE_PHASE_SHIFT)))
                                         targets.push_back(Target);
                                     Pet* pet = Target->GetPet();
-                                    if (pet && pet->IsAlive() && caster->IsWithinDistInMap(pet, m_radius))
+                                    if (pet && pet->IsAlive() && caster->IsWithinDistInMap(pet, m_radius, true, GetSpellProto()->HasAttribute(SPELL_ATTR_EX6_IGNORE_PHASE_SHIFT)))
                                         targets.push_back(pet);
                                 }
                             }
@@ -610,25 +610,25 @@ void AreaAura::Update(uint32 diff)
                     }
 
                     // add owner
-                    if (owner != caster && caster->IsWithinDistInMap(owner, m_radius))
+                    if (owner != caster && caster->IsWithinDistInMap(owner, m_radius, true, GetSpellProto()->HasAttribute(SPELL_ATTR_EX6_IGNORE_PHASE_SHIFT)))
                         targets.push_back(owner);
                     // add caster's pet
                     Unit* pet = caster->GetPet();
-                    if (pet && caster->IsWithinDistInMap(pet, m_radius))
+                    if (pet && caster->IsWithinDistInMap(pet, m_radius, true, GetSpellProto()->HasAttribute(SPELL_ATTR_EX6_IGNORE_PHASE_SHIFT)))
                         targets.push_back(pet);
 
                     break;
                 }
                 case AREA_AURA_FRIEND:
                 {
-                    MaNGOS::AnyFriendlyUnitInObjectRangeCheck u_check(caster, nullptr, m_radius);
+                    MaNGOS::AnyFriendlyUnitInObjectRangeCheck u_check(caster, nullptr, m_radius, GetSpellProto()->HasAttribute(SPELL_ATTR_EX6_IGNORE_PHASE_SHIFT));
                     MaNGOS::UnitListSearcher<MaNGOS::AnyFriendlyUnitInObjectRangeCheck> searcher(targets, u_check);
                     Cell::VisitAllObjects(caster, searcher, m_radius);
                     break;
                 }
                 case AREA_AURA_ENEMY:
                 {
-                    MaNGOS::AnyAoETargetUnitInObjectRangeCheck u_check(caster, nullptr, m_radius); // No GetCharmer in searcher
+                    MaNGOS::AnyAoETargetUnitInObjectRangeCheck u_check(caster, nullptr, m_radius, GetSpellProto()->HasAttribute(SPELL_ATTR_EX6_IGNORE_PHASE_SHIFT)); // No GetCharmer in searcher
                     MaNGOS::UnitListSearcher<MaNGOS::AnyAoETargetUnitInObjectRangeCheck> searcher(targets, u_check);
                     Cell::VisitAllObjects(caster, searcher, m_radius);
                     break;
@@ -636,7 +636,8 @@ void AreaAura::Update(uint32 diff)
                 case AREA_AURA_OWNER:
                 case AREA_AURA_PET:
                 {
-                    if (owner != caster && caster->IsWithinDistInMap(owner, m_radius) && caster->CanAssistSpell(owner, GetSpellProto()))
+                    if (owner != caster && caster->IsWithinDistInMap(owner, m_radius, true, GetSpellProto()->HasAttribute(SPELL_ATTR_EX6_IGNORE_PHASE_SHIFT))
+                        && caster->CanAssistSpell(owner, GetSpellProto()))
                         targets.push_back(owner);
                     break;
                 }
@@ -2618,8 +2619,18 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                 }
                 return;
             }
-            case 12479:                                     // Hex of Jammal'an
-                target->CastSpell(target, 12480, TRIGGERED_OLD_TRIGGERED, nullptr, this);
+            case 11129:                                     // Combustion
+                target->RemoveAurasDueToSpell(28682); // on Combustion removal remove crit % stacks
+                return;
+            case 11826:                                     // Electromagnetic Gigaflux Reactivator
+                if (m_removeMode != AURA_REMOVE_BY_EXPIRE)
+                    return;
+
+                if (Unit* caster = GetCaster())
+                {
+                    if (caster->GetTypeId() == TYPEID_PLAYER)
+                        caster->CastSpell(target, 11828, TRIGGERED_OLD_TRIGGERED, ((Player*)caster)->GetItemByGuid(this->GetCastItemGuid()), this);
+                }
                 return;
             case 12774:                                     // (DND) Belnistrasz Idol Shutdown Visual
             {
@@ -3692,7 +3703,8 @@ void Aura::HandleAuraTransform(bool apply, bool Real)
                 // case 51010:                              // Dire Brew
                 // break;
                 default:
-                    sLog.outError("Aura::HandleAuraTransform, spell %u does not have creature entry defined, need custom defined model.", GetId());
+                    if (!m_modifier.m_amount) // can be set through script
+                        sLog.outError("Aura::HandleAuraTransform, spell %u does not have creature entry defined, need custom defined model.", GetId());
                     break;
             }
         }
@@ -3942,19 +3954,12 @@ void Aura::HandleModPossess(bool apply, bool Real)
 
         if (Player* playerCaster = caster->IsPlayer() ? static_cast<Player*>(caster) : nullptr)
         {
-            UpdateMask updateMask;
-            updateMask.SetCount(target->GetValuesCount());
-            target->MarkUpdateFieldsWithFlagForUpdate(updateMask, UF_FLAG_OWNER_ONLY);
-            if (updateMask.HasData())
+            UpdateData newData;
+            target->BuildValuesUpdateBlockForPlayerWithFlags(newData, playerCaster, UF_FLAG_OWNER_ONLY);
+            if (newData.HasData())
             {
-                UpdateData newData;
-                target->BuildValuesUpdateBlockForPlayer(newData, updateMask, playerCaster);
-
-                if (newData.HasData())
-                {
-                    WorldPacket newDataPacket = newData.BuildPacket(0, false);
-                    playerCaster->SendDirectMessage(newDataPacket);
-                }
+                WorldPacket newDataPacket = newData.BuildPacket(0, false);
+                playerCaster->SendDirectMessage(newDataPacket);
             }
         }
     }
@@ -6629,20 +6634,9 @@ void Aura::HandleAuraEmpathy(bool apply, bool /*Real*/)
         {
             if (Player* playerCaster = caster->IsPlayer() ? static_cast<Player*>(caster) : nullptr)
             {
-                UpdateMask updateMask;
-                updateMask.SetCount(target->GetValuesCount());
-                updateMask.SetBit(UNIT_FIELD_HEALTH);
-                updateMask.SetBit(UNIT_FIELD_MAXHEALTH);
-                target->MarkUpdateFieldsWithFlagForUpdate(updateMask, UF_FLAG_SPECIAL_INFO);
-
-                UpdateData newData;
-                target->BuildValuesUpdateBlockForPlayer(newData, updateMask, playerCaster);
-
-                if (newData.HasData())
-                {
-                    WorldPacket newDataPacket = newData.BuildPacket(0, false);
-                    playerCaster->SendDirectMessage(newDataPacket);
-                }
+                UpdateData updateData;
+                target->BuildValuesUpdateBlockForPlayerWithFlags(updateData, playerCaster, UpdateFieldFlags(UF_FLAG_SPECIAL_INFO | UF_FLAG_DYNAMIC));
+                updateData.SendData(*playerCaster->GetSession());
             }
         }
     }
@@ -7924,6 +7918,8 @@ void Aura::HandleFactionOverride(bool apply, bool Real)
         target->setFaction(GetMiscValue());
     else
         target->RestoreOriginalFaction();
+
+    target->RemoveUnattackableTargets();
 }
 
 void Aura::HandleOverrideClassScript(bool apply, bool /*real*/)
@@ -8128,6 +8124,9 @@ void SpellAuraHolder::_AddSpellAuraHolder()
     if (m_spellProto->AuraInterruptFlags & AURA_INTERRUPT_FLAG_NOT_SEATED && !m_target->IsSitState())
         m_target->SetStandState(UNIT_STAND_STATE_SIT);
 
+    if (m_spellProto->HasAttribute(SPELL_ATTR_EX_PREVENTS_ANIM))
+        m_target->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PREVENT_ANIM);
+
     // register aura diminishing on apply
     if (getDiminishGroup() != DIMINISHING_NONE)
         m_target->ApplyDiminishingAura(getDiminishGroup(), true);
@@ -8237,23 +8236,24 @@ void SpellAuraHolder::_RemoveSpellAuraHolder()
 
         // Remove state (but need check other auras for it)
         if (removeState)
-        {
-            bool found = false;
-            Unit::SpellAuraHolderMap const& holders = m_target->GetSpellAuraHolderMap();
-            for (const auto& holder : holders)
-            {
-                SpellEntry const* auraSpellInfo = holder.second->GetSpellProto();
-                if (auraSpellInfo->IsFitToFamily(SpellFamily(m_spellProto->SpellFamilyName), removeFamilyFlag))
-                {
-                    found = true;
-                    break;
-                }
-            }
-
             // this has been last aura
-            if (!found)
+            if (!m_target->HasAuraWithCondition([spellProto = m_spellProto, removeFamilyFlag](SpellAuraHolder* holder)
+            {
+                SpellEntry const* auraSpellInfo = holder->GetSpellProto();
+                if (auraSpellInfo->IsFitToFamily(SpellFamily(spellProto->SpellFamilyName), removeFamilyFlag))
+                    return true;
+                return false;
+            }))
                 m_target->ModifyAuraState(AuraState(removeState), false);
-        }
+
+        if (m_spellProto->HasAttribute(SPELL_ATTR_EX_PREVENTS_ANIM))
+            if (!m_target->HasAuraWithCondition([](SpellAuraHolder* holder)
+            {
+                if (holder->GetSpellProto()->HasAttribute(SPELL_ATTR_EX_PREVENTS_ANIM))
+                    return true;
+                return false;
+            }))
+                m_target->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PREVENT_ANIM);
 
         // reset cooldown state for spells
         if (caster && GetSpellProto()->HasAttribute(SPELL_ATTR_DISABLED_WHILE_ACTIVE))
@@ -8325,7 +8325,7 @@ void SpellAuraHolder::SetStackAmount(uint32 stackAmount, Unit* newCaster)
     {
         // Change caster
         Unit* oldCaster = GetCaster();
-        if (oldCaster != newCaster)
+        if (newCaster && oldCaster != newCaster)
         {
             if (oldCaster != m_target)
                 ClearExtraAuraInfo(oldCaster);
@@ -8793,6 +8793,7 @@ bool SpellAuraHolder::IsSaveToDbHolder() const
             case 39953: // adals song of battle
             case 45444: // bonfires blessing
             case 46302: // kirus song of victory
+            case 47521: // Mole Machine Player Hide and Root
                 return false;
         }
     }

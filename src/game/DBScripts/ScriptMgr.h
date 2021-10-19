@@ -81,7 +81,7 @@ enum ScriptCommand                                          // resSource, resTar
     // datalong = stand state (enum UnitStandStateType)
     SCRIPT_COMMAND_MODIFY_NPC_FLAGS         = 29,           // resSource = Creature
     // datalong=NPCFlags
-    // datalong2:0x00=toggle, 0x01=add, 0x02=remove
+    // datalong2:0x00=add, 0x01=remove, 0x02=toggle
     SCRIPT_COMMAND_SEND_TAXI_PATH           = 30,           // datalong = taxi path id (source or target must be player)
     SCRIPT_COMMAND_TERMINATE_SCRIPT         = 31,           // datalong = search for npc entry if provided
     // datalong2= search distance
@@ -129,7 +129,7 @@ enum ScriptCommand                                          // resSource, resTar
     SCRIPT_COMMAND_INTERRUPT_SPELL          = 47,           // datalong = SpellType enum CurrentSpellTypes
     SCRIPT_COMMAND_MODIFY_UNIT_FLAGS        = 48,           // resSource = Creature
     // datalong=UnitFlags
-    // datalong2:0x00=toggle, 0x01=add, 0x02=remove
+    // datalong2:0x00=add, 0x01=remove, 0x02=toggle
     SCRIPT_COMMAND_SET_DATA_64              = 49,           // datalong = set data param 1, datalong2 = set data param 2
     SCRIPT_COMMAND_ZONE_PULSE               = 50,           // 
 };
@@ -139,16 +139,18 @@ enum ScriptCommand                                          // resSource, resTar
 enum ScriptInfoDataFlags
 {
     // default: s/b -> t
-    SCRIPT_FLAG_BUDDY_AS_TARGET             = 0x01,         // s -> b
-    SCRIPT_FLAG_REVERSE_DIRECTION           = 0x02,         // t* -> s* (* result after previous flag is evaluated)
-    SCRIPT_FLAG_SOURCE_TARGETS_SELF         = 0x04,         // s* -> s* (* result after previous flag is evaluated)
-    SCRIPT_FLAG_COMMAND_ADDITIONAL          = 0x08,         // command dependend
-    SCRIPT_FLAG_BUDDY_BY_GUID               = 0x10,         // take the buddy by guid
-    SCRIPT_FLAG_BUDDY_IS_PET                = 0x20,         // buddy is a pet
-    SCRIPT_FLAG_BUDDY_IS_DESPAWNED          = 0x40,         // buddy is dead or despawned
-    SCRIPT_FLAG_BUDDY_BY_POOL               = 0x80          // buddy should be part of a pool
+    SCRIPT_FLAG_BUDDY_AS_TARGET             = 0x001,        // s -> b
+    SCRIPT_FLAG_REVERSE_DIRECTION           = 0x002,        // t* -> s* (* result after previous flag is evaluated)
+    SCRIPT_FLAG_SOURCE_TARGETS_SELF         = 0x004,        // s* -> s* (* result after previous flag is evaluated)
+    SCRIPT_FLAG_COMMAND_ADDITIONAL          = 0x008,        // command dependend
+    SCRIPT_FLAG_BUDDY_BY_GUID               = 0x010,        // take the buddy by guid
+    SCRIPT_FLAG_BUDDY_IS_PET                = 0x020,        // buddy is a pet
+    SCRIPT_FLAG_BUDDY_IS_DESPAWNED          = 0x040,        // buddy is dead or despawned
+    SCRIPT_FLAG_BUDDY_BY_POOL               = 0x080,        // buddy should be part of a pool
+    SCRIPT_FLAG_BUDDY_BY_SPAWN_GROUP        = 0x100,        // buddy is from spawn group - NYI - TODO:
+    SCRIPT_FLAG_ALL_ELIGIBLE_BUDDIES        = 0x200,        // multisource/multitarget - will execute for each eligible
 };
-#define MAX_SCRIPT_FLAG_VALID               (2 * SCRIPT_FLAG_BUDDY_BY_POOL - 1)
+#define MAX_SCRIPT_FLAG_VALID               (2 * SCRIPT_FLAG_ALL_ELIGIBLE_BUDDIES - 1)
 
 struct ScriptInfo
 {
@@ -303,7 +305,7 @@ struct ScriptInfo
         struct                                              // SCRIPT_COMMAND_MOUNT_TO_ENTRY_OR_MODEL (24)
         {
             uint32 creatureOrModelEntry;                    // datalong
-            uint32 empty1;                                  // datalong2
+            uint32 speedChange;                             // datalong2
         } mount;
 
         struct                                              // SCRIPT_COMMAND_SET_RUN (25)
@@ -449,7 +451,7 @@ struct ScriptInfo
     // Buddy system (entry can be npc or go entry, depending on command)
     uint32 buddyEntry;                                      // buddy_entry
     uint32 searchRadiusOrGuid;                              // search_radius (can also be guid in case of SCRIPT_FLAG_BUDDY_BY_GUID)
-    uint8 data_flags;                                       // data_flags
+    uint32 data_flags;                                      // data_flags
 
     int32 textId[MAX_TEXT_ID];                              // dataint to dataint4
 
@@ -535,6 +537,7 @@ class ScriptAction
         {}
 
         bool HandleScriptStep();                            // return true IF AND ONLY IF the script should be terminated
+        bool ExecuteDbscriptCommand(WorldObject* pSource, WorldObject* pTarget, Object* pSourceOrItem);
 
         const char* GetTableName() const { return m_table; }
         uint32 GetId() const { return m_script->id; }
@@ -560,7 +563,7 @@ class ScriptAction
 
         // Helper functions
         bool GetScriptCommandObject(const ObjectGuid guid, bool includeItem, Object*& resultObject) const;
-        bool GetScriptProcessTargets(WorldObject* pOrigSource, WorldObject* pOrigTarget, WorldObject*& pFinalSource, WorldObject*& pFinalTarget) const;
+        bool GetScriptProcessTargets(WorldObject* originalSource, WorldObject* originalTarget, std::vector<WorldObject*>& finalSources, std::vector<WorldObject*>& finalTargets) const;
         bool LogIfNotCreature(WorldObject* pWorldObject) const;
         bool LogIfNotUnit(WorldObject* pWorldObject) const;
         bool LogIfNotGameObject(WorldObject* pWorldObject) const;

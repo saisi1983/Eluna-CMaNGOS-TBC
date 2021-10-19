@@ -753,9 +753,14 @@ bool Unit::CanReachWithMeleeAttack(Unit const* pVictim, float flat_mod /*= 0.0f*
     // This check is not related to bounding radius
     float dx = GetPositionX() - pVictim->GetPositionX();
     float dy = GetPositionY() - pVictim->GetPositionY();
-    float dz = GetPositionZ() - pVictim->GetPositionZ();
 
-    return dx * dx + dy * dy + dz * dz < reach * reach;
+    if (IsPlayerControlled())
+    {
+        float dz = GetPositionZ() - pVictim->GetPositionZ();
+        return dx * dx + dy * dy + dz * dz < reach* reach;
+    }
+
+    return dx * dx + dy * dy < reach* reach;
 }
 
 void Unit::RemoveSpellsCausingAura(AuraType auraType)
@@ -4614,6 +4619,18 @@ void Unit::InterruptNonMeleeSpells(bool withDelayed, uint32 spell_id)
         InterruptSpell(CURRENT_CHANNELED_SPELL, true);
 }
 
+void Unit::InterruptSpellsWithChannelFlags(uint32 flags)
+{
+    if (m_currentSpells[CURRENT_CHANNELED_SPELL] && (m_currentSpells[CURRENT_CHANNELED_SPELL]->m_spellInfo->ChannelInterruptFlags & flags) != 0)
+        InterruptSpell(CURRENT_CHANNELED_SPELL, true);
+}
+
+void Unit::InterruptSpellsAndAurasWithInterruptFlags(uint32 flags)
+{
+    InterruptSpellsWithChannelFlags(flags);
+    RemoveAurasWithInterruptFlags(flags);
+}
+
 Spell* Unit::FindCurrentSpellBySpellId(uint32 spell_id) const
 {
     for (auto m_currentSpell : m_currentSpells)
@@ -5334,10 +5351,10 @@ void Unit::RemoveAurasTriggeredBySpell(uint32 spellId, ObjectGuid casterGuid /*=
     }
 }
 
-void Unit::RemoveAuraStack(uint32 spellId)
+void Unit::RemoveAuraStack(uint32 spellId, int32 modifier)
 {
     if (SpellAuraHolder* holder = GetSpellAuraHolder(spellId))
-        if (holder->ModStackAmount(-1, nullptr)) // Remove aura on return true
+        if (holder->ModStackAmount(modifier, nullptr)) // Remove aura on return true
             RemoveSpellAuraHolder(holder, AURA_REMOVE_BY_DEFAULT);
 }
 
@@ -6229,7 +6246,7 @@ bool Unit::CanInitiateAttack() const
     if (hasUnitState(UNIT_STAT_CAN_NOT_REACT))
         return false;
 
-    if (HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_NOT_SELECTABLE))
+    if (HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SPAWNING | UNIT_FLAG_NOT_SELECTABLE))
         if (GetTypeId() != TYPEID_UNIT || !((Creature*)this)->GetForceAttackingCapability())
             return false;
 
@@ -8445,13 +8462,15 @@ bool Unit::Mount(uint32 displayid, const Aura* aura/* = nullptr*/)
         SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID, displayid);
     else
         SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID, m_overridenMountId);
-    SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNT);
+
+    if (aura)
+        SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNT);
     return true;
 }
 
 bool Unit::Unmount(const Aura* aura/* = nullptr*/)
 {
-    if (!IsMounted())
+    if (!GetMountID())
         return false;
 
     if (aura)
@@ -8463,7 +8482,7 @@ bool Unit::Unmount(const Aura* aura/* = nullptr*/)
 
     RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_NOT_MOUNTED);
     SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID, 0);
-    RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNT);
+    RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNT); // always remove even if aura for safety
 
     if (aura)
     {
@@ -8826,10 +8845,19 @@ int32 Unit::ModifyPower(Powers power, int32 dVal)
     return gain;
 }
 
-bool Unit::IsVisibleForOrDetect(Unit const* u, WorldObject const* viewPoint, bool detect, bool /*inVisibleList*/, bool is3dDistance, bool spell) const
+bool Unit::IsVisibleForOrDetect(Unit const* u, WorldObject const* viewPoint, bool detect, bool /*inVisibleList*/, bool is3dDistance, bool spell, bool ignorePhase) const
 {
-    if (!u || !IsInMap(u))
+    if (!u)
         return false;
+
+    if (ignorePhase)
+    {
+        if (!IsInMapIgnorePhase(u))
+            return false;
+    }
+    else if (!IsInMap(u))
+        return false;
+
 
     // Always can see self
     if (u == this)
@@ -9464,20 +9492,32 @@ bool Unit::SelectHostileTarget()
                 AI()->AttackStart(target);
         }
 
+        bool evade = false;
+
         // check if currently selected target is reachable
         // NOTE: path alrteady generated from AttackStart()
         if (AI()->IsCombatMovement())
         {
             if (!GetMotionMaster()->GetCurrent()->IsReachable())
             {
-                if (!GetCombatManager().IsInEvadeMode())
-                    GetCombatManager().StartEvadeTimer();
+                if (!AI()->IsRangedUnit() && getThreatManager().getThreatList().size() == 1 &&
+                    GetDistanceZ(target) > CREATURE_Z_ATTACK_RANGE_MELEE)
+                {
+                    getThreatManager().modifyThreatPercent(target, -101);
+                    evade = true;
+                }
+                else
+                {
+                    if (!GetCombatManager().IsInEvadeMode())
+                        GetCombatManager().StartEvadeTimer();
+                }
             }
             else if(GetCombatManager().IsInEvadeMode())
                 GetCombatManager().StopEvade();
         }
 
-        return true;
+        if (!evade)
+            return true;
     }
     if (IsIgnoringRangedTargets() && !getThreatManager().isThreatListEmpty())
         return true;
@@ -10754,10 +10794,6 @@ bool Unit::SetStunned(bool apply, ObjectGuid casterGuid, uint32 spellID, bool lo
         SetImmobilizedState(apply, true, logout);
 
         ApplyModFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_STUNNED, hasUnitState(UNIT_STAT_STUNNED | UNIT_STAT_LOGOUT_TIMER));
-
-        if (!logout)
-            ApplyModFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_UNK_29, (IsStunned() || IsFeigningDeath()));
-
         return true;
     }
     return false;
@@ -10876,9 +10912,6 @@ void Unit::SetFeignDeath(bool apply, ObjectGuid casterGuid /*= ObjectGuid()*/, u
 
         getHostileRefManager().updateOnlineOfflineState(true);
     }
-
-    // blizz like 2.0.x
-    ApplyModFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_UNK_29, (IsStunned() || IsFeigningDeath()));
 }
 
 bool Unit::IsSitState() const
@@ -10991,7 +11024,7 @@ void Unit::UpdateModelData()
         SetFloatValue(UNIT_FIELD_COMBATREACH, GetObjectScale() * modelInfo->combat_reach);
 
         SetBaseWalkSpeed(modelInfo->SpeedWalk);
-        SetBaseRunSpeed(modelInfo->SpeedRun);
+        SetBaseRunSpeed(modelInfo->SpeedRun, false);
     }
 }
 
@@ -12365,36 +12398,7 @@ void Unit::Uncharm(Unit* charmed, uint32 spellId)
             charmInfo->ResetCharmState();
             charmed->DeleteCharmInfo();
 
-            // first find friendly target (stopping combat here is not recommended because m_attackers will be modified)
-            AttackerSet friendlyTargets;
-            for (auto itr = charmed->getAttackers().begin(); itr != charmed->getAttackers().end(); ++itr)
-            {
-                Unit* attacker = (*itr);
-                if (attacker->GetTypeId() != TYPEID_UNIT)
-                    continue;
-
-                if (charmed->CanAttack(attacker))
-                    friendlyTargets.insert(attacker);
-            }
-
-            for (auto itr = charmed->getThreatManager().getThreatList().begin(); itr != charmed->getThreatManager().getThreatList().end(); ++itr)
-            {
-                Unit* attacker = (*itr)->getTarget();
-                if (attacker->GetTypeId() != TYPEID_UNIT)
-                    continue;
-
-                if (!charmed->CanAttack(attacker))
-                    friendlyTargets.insert(attacker);
-            }
-
-            // now stop attackers combat and transfer threat generated from this to owner, also get the total generated threat
-            for (auto attacker : friendlyTargets)
-            {
-                attacker->AttackStop(true, true);
-                attacker->getThreatManager().modifyThreatPercent(charmed, -101);     // only remove the possessed creature from threat list because it can be filled by other players
-                if (charmed->IsPropagatingThreatToOwner())
-                    attacker->AddThreat(this);
-            }
+            charmed->RemoveUnattackableTargets();
 
             // we have to restore initial MotionMaster
             charmed->GetMotionMaster()->UnMarkFollowMovegens();
@@ -12492,6 +12496,40 @@ void Unit::Uncharm(Unit* charmed, uint32 spellId)
             if (player->GetGroup())
                 player->SetGroupUpdateFlag(GROUP_UPDATE_PET);
         }
+    }
+}
+
+void Unit::RemoveUnattackableTargets(Unit* charmer)
+{
+    // first find friendly target (stopping combat here is not recommended because m_attackers will be modified)
+    AttackerSet friendlyTargets;
+    for (auto itr = getAttackers().begin(); itr != getAttackers().end(); ++itr)
+    {
+        Unit* attacker = (*itr);
+        if (attacker->GetTypeId() != TYPEID_UNIT)
+            continue;
+
+        if (CanAttack(attacker))
+            friendlyTargets.insert(attacker);
+    }
+
+    for (auto itr = getThreatManager().getThreatList().begin(); itr != getThreatManager().getThreatList().end(); ++itr)
+    {
+        Unit* attacker = (*itr)->getTarget();
+        if (attacker->GetTypeId() != TYPEID_UNIT)
+            continue;
+
+        if (!CanAttack(attacker))
+            friendlyTargets.insert(attacker);
+    }
+
+    // now stop attackers combat and transfer threat generated from this to owner, also get the total generated threat
+    for (auto attacker : friendlyTargets)
+    {
+        attacker->AttackStop(true, true);
+        attacker->getThreatManager().modifyThreatPercent(this, -101);     // only remove the possessed creature from threat list because it can be filled by other players
+        if (charmer && IsPropagatingThreatToOwner())
+            attacker->AddThreat(charmer);
     }
 }
 

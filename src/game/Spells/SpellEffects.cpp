@@ -2524,37 +2524,6 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                     unitTarget->SetHealth(m_caster->GetHealth());
                     return;
                 }
-                case 49357:                                 // Brewfest Mount Transformation
-                {
-                    if (m_caster->GetTypeId() != TYPEID_PLAYER)
-                        return;
-
-                    if (!m_caster->HasAuraType(SPELL_AURA_MOUNTED))
-                        return;
-
-                    m_caster->RemoveSpellsCausingAura(SPELL_AURA_MOUNTED);
-
-                    // Ram for Alliance, Kodo for Horde
-                    if (((Player*)m_caster)->GetTeam() == ALLIANCE)
-                    {
-                        if (m_caster->GetSpeedRate(MOVE_RUN) >= 2.0f)
-                            // 100% Ram
-                            m_caster->CastSpell(m_caster, 43900, TRIGGERED_OLD_TRIGGERED);
-                        else
-                            // 60% Ram
-                            m_caster->CastSpell(m_caster, 43899, TRIGGERED_OLD_TRIGGERED);
-                    }
-                    else
-                    {
-                        if (((Player*)m_caster)->GetSpeedRate(MOVE_RUN) >= 2.0f)
-                            // 100% Kodo
-                            m_caster->CastSpell(m_caster, 49379, TRIGGERED_OLD_TRIGGERED);
-                        else
-                            // 60% Kodo
-                            m_caster->CastSpell(m_caster, 49378, TRIGGERED_OLD_TRIGGERED);
-                    }
-                    return;
-                }
                 case 50243:                                 // Teach Language
                 {
                     if (m_caster->GetTypeId() != TYPEID_PLAYER)
@@ -2586,37 +2555,6 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                         bg->HandlePlayerDroppedFlag((Player*)m_caster);
 
                     m_caster->CastSpell(m_caster, 30452, TRIGGERED_OLD_TRIGGERED, nullptr);
-                    return;
-                }
-                case 52845:                                 // Brewfest Mount Transformation (Faction Swap)
-                {
-                    if (m_caster->GetTypeId() != TYPEID_PLAYER)
-                        return;
-
-                    if (!m_caster->HasAuraType(SPELL_AURA_MOUNTED))
-                        return;
-
-                    m_caster->RemoveSpellsCausingAura(SPELL_AURA_MOUNTED);
-
-                    // Ram for Horde, Kodo for Alliance
-                    if (((Player*)m_caster)->GetTeam() == HORDE)
-                    {
-                        if (m_caster->GetSpeedRate(MOVE_RUN) >= 2.0f)
-                            // Swift Brewfest Ram, 100% Ram
-                            m_caster->CastSpell(m_caster, 43900, TRIGGERED_OLD_TRIGGERED);
-                        else
-                            // Brewfest Ram, 60% Ram
-                            m_caster->CastSpell(m_caster, 43899, TRIGGERED_OLD_TRIGGERED);
-                    }
-                    else
-                    {
-                        if (((Player*)m_caster)->GetSpeedRate(MOVE_RUN) >= 2.0f)
-                            // Great Brewfest Kodo, 100% Kodo
-                            m_caster->CastSpell(m_caster, 49379, TRIGGERED_OLD_TRIGGERED);
-                        else
-                            // Brewfest Riding Kodo, 60% Kodo
-                            m_caster->CastSpell(m_caster, 49378, TRIGGERED_OLD_TRIGGERED);
-                    }
                     return;
                 }
             }
@@ -5195,14 +5133,8 @@ void Spell::EffectAddHonor(SpellEffectIndex /*eff_idx*/)
 
 void Spell::EffectSpawn(SpellEffectIndex /*eff_idx*/)
 {
-    switch (m_spellInfo->Id)
-    {
-        case 15750: // Rookery Whelp Spawn-in Spell
-        case 26262: // Birth
-        case 34115:
-            m_caster->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
-            break;
-    }
+    // Previously used by 15750 26262 34115 - noting for posterity
+    m_caster->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SPAWNING);
 }
 
 void Spell::EffectTradeSkill(SpellEffectIndex /*eff_idx*/)
@@ -8550,7 +8482,7 @@ bool Spell::DoSummonCritter(CreatureSummonPositions& list, SummonPropertiesEntry
     critter->SetUInt32Value(UNIT_CREATED_BY_SPELL, m_spellInfo->Id);
     critter->SelectLevel();                                 // some summoned critters have different from 1 DB data for level/hp
     const CreatureInfo* info = critter->GetCreatureInfo();
-    // Some companions have additional UNIT_FLAG_NON_ATTACKABLE (0x2), perphaps coming from template, so add template flags
+
     critter->SetUInt32Value(UNIT_FIELD_FLAGS, info->UnitFlags);
     critter->SetUInt32Value(UNIT_NPC_FLAGS, info->NpcFlags);// some companions may have quests, so they need npc flags
     critter->InitPetCreateSpells();                         // some companions may have spells (e.g. disgusting oozeling)
