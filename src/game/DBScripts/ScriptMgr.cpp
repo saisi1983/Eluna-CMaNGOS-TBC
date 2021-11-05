@@ -1506,7 +1506,7 @@ bool ScriptAction::ExecuteDbscriptCommand(WorldObject* pSource, WorldObject* pTa
             else
             {
                 ((Unit*)pSource)->GetMotionMaster()->Clear();
-                ((Unit*)pSource)->GetMotionMaster()->MovePoint(0, m_script->x, m_script->y, m_script->z);
+                ((Unit*)pSource)->GetMotionMaster()->MovePoint(0, Position(m_script->x, m_script->y, m_script->z, m_script->o), ForcedMovement(m_script->moveTo.forcedMovement), 0.f, true, pTarget ? pTarget->GetObjectGuid() : ObjectGuid(), m_script->moveTo.relayId);
             }
             break;
         }
@@ -1693,7 +1693,7 @@ bool ScriptAction::ExecuteDbscriptCommand(WorldObject* pSource, WorldObject* pTa
         case SCRIPT_COMMAND_OPEN_DOOR:                      // 11
         case SCRIPT_COMMAND_CLOSE_DOOR:                     // 12
         {
-            GameObject* pDoor;
+            GameObject* door;
             uint32 time_to_reset = m_script->changeDoor.resetDelay < 15 ? 15 : m_script->changeDoor.resetDelay;
 
             if (m_script->changeDoor.goGuid)
@@ -1703,36 +1703,36 @@ bool ScriptAction::ExecuteDbscriptCommand(WorldObject* pSource, WorldObject* pTa
                     break;
 
                 // TODO - Was a change, before random map
-                pDoor = m_map->GetGameObject(ObjectGuid(HIGHGUID_GAMEOBJECT, goData->id, m_script->changeDoor.goGuid));
+                door = m_map->GetGameObject(ObjectGuid(HIGHGUID_GAMEOBJECT, goData->id, m_script->changeDoor.goGuid));
             }
             else
             {
                 if (LogIfNotGameObject(pSource))
                     break;
 
-                pDoor = (GameObject*)pSource;
+                door = static_cast<GameObject*>(pSource);
             }
 
-            if (!pDoor)
+            if (!door)
             {
                 sLog.outErrorDb(" DB-SCRIPTS: Process table `%s` id %u, command %u failed for gameobject(guid: %u, buddyEntry: %u).", m_table, m_script->id, m_script->command, m_script->changeDoor.goGuid, m_script->buddyEntry);
                 break;
             }
 
-            if (pDoor->GetGoType() != GAMEOBJECT_TYPE_DOOR)
+            if (door->GetGoType() != GAMEOBJECT_TYPE_DOOR)
             {
-                sLog.outErrorDb(" DB-SCRIPTS: Process table `%s` id %u, command %u failed for non-door(GoType: %u).", m_table, m_script->id, m_script->command, pDoor->GetGoType());
+                sLog.outErrorDb(" DB-SCRIPTS: Process table `%s` id %u, command %u failed for non-door(GoType: %u).", m_table, m_script->id, m_script->command, door->GetGoType());
                 break;
             }
 
-            if ((m_script->command == SCRIPT_COMMAND_OPEN_DOOR && pDoor->GetGoState() != GO_STATE_READY) ||
-                    (m_script->command == SCRIPT_COMMAND_CLOSE_DOOR && pDoor->GetGoState() == GO_STATE_READY))
+            if ((m_script->command == SCRIPT_COMMAND_OPEN_DOOR && door->GetGoState() != GO_STATE_READY) ||
+                    (m_script->command == SCRIPT_COMMAND_CLOSE_DOOR && door->GetGoState() == GO_STATE_READY))
                 break;                                      // to be opened door already open, or to be closed door already closed
 
-            pDoor->UseDoorOrButton(time_to_reset);
+            door->UseOpenableObject(m_script->command == SCRIPT_COMMAND_OPEN_DOOR, time_to_reset, m_script->changeDoor.alternate);
 
-            if (pTarget && pTarget->isType(TYPEMASK_GAMEOBJECT) && ((GameObject*)pTarget)->GetGoType() == GAMEOBJECT_TYPE_BUTTON)
-                ((GameObject*)pTarget)->UseDoorOrButton(time_to_reset);
+            if (pTarget && pTarget->IsGameObject() && static_cast<GameObject*>(pTarget)->GetGoType() == GAMEOBJECT_TYPE_BUTTON)
+                static_cast<GameObject*>(pTarget)->UseOpenableObject(m_script->command == SCRIPT_COMMAND_OPEN_DOOR, time_to_reset, m_script->changeDoor.alternate);
 
             break;
         }
@@ -1880,6 +1880,15 @@ bool ScriptAction::ExecuteDbscriptCommand(WorldObject* pSource, WorldObject* pTa
                 break;
             }
 
+            if (m_script->movement.movementType == WAYPOINT_MOTION_TYPE || m_script->movement.movementType == PATH_MOTION_TYPE)
+            {
+                if (m_script->movement.timerOrPassTarget && !pTarget)
+                {
+                    DETAIL_FILTER_LOG(LOG_FILTER_DB_SCRIPT, " DB-SCRIPTS: Process table `%s` id %u, SCRIPT_COMMAND_MOVEMENT called for movement change to %u with source guid %s, pass target true and target nullptr: skipping.", m_table, m_script->id, m_script->movement.movementType, pSource->GetGuidStr().c_str());
+                    break;
+                }
+            }
+
             switch (m_script->movement.movementType)
             {
                 case IDLE_MOTION_TYPE:
@@ -1889,19 +1898,29 @@ bool ScriptAction::ExecuteDbscriptCommand(WorldObject* pSource, WorldObject* pTa
                     break;
                 case RANDOM_MOTION_TYPE:
                     if (m_script->data_flags & SCRIPT_FLAG_COMMAND_ADDITIONAL)
-                        source->GetMotionMaster()->MoveRandomAroundPoint(pSource->GetPositionX(), pSource->GetPositionY(), pSource->GetPositionZ(), float(m_script->movement.wanderORpathId), 0.f, m_script->movement.timer);
+                        source->GetMotionMaster()->MoveRandomAroundPoint(pSource->GetPositionX(), pSource->GetPositionY(), pSource->GetPositionZ(), float(m_script->movement.wanderORpathId), 0.f, m_script->movement.timerOrPassTarget);
                     else
                     {
                         float respX, respY, respZ, respO, wander_distance;
                         source->GetRespawnCoord(respX, respY, respZ, &respO, &wander_distance);
                         wander_distance = m_script->movement.wanderORpathId ? m_script->movement.wanderORpathId : wander_distance;
-                        source->GetMotionMaster()->MoveRandomAroundPoint(respX, respY, respZ, wander_distance, 0.f, m_script->movement.timer);
+                        source->GetMotionMaster()->MoveRandomAroundPoint(respX, respY, respZ, wander_distance, 0.f, m_script->movement.timerOrPassTarget);
                     }
                     break;
                 case WAYPOINT_MOTION_TYPE:
                     source->StopMoving();
                     source->GetMotionMaster()->Clear(false, true);
-                    source->GetMotionMaster()->MoveWaypoint(m_script->movement.wanderORpathId);
+                    if (!m_script->movement.timerOrPassTarget)
+                        source->GetMotionMaster()->MoveWaypoint(m_script->movement.wanderORpathId);
+                    else
+                        source->GetMotionMaster()->MoveWaypoint(m_script->movement.wanderORpathId, 0, 0, 0, ForcedMovement(m_script->textId[0]), pTarget->GetObjectGuid());
+                    break;
+                case PATH_MOTION_TYPE:
+                    source->StopMoving();
+                    if (!m_script->movement.timerOrPassTarget)
+                        source->GetMotionMaster()->MovePath(m_script->movement.wanderORpathId);
+                    else
+                        source->GetMotionMaster()->MovePath(m_script->movement.wanderORpathId, PATH_NO_PATH, ForcedMovement(m_script->textId[0]), false, 0.f, false, pTarget->GetObjectGuid());
                     break;
             }
 

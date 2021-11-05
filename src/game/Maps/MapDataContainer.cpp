@@ -16,16 +16,23 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-//#include "DatabaseEnv.h"
-#include "Field.h"
+#include "MapDataContainer.h"
+#include "Globals/ObjectMgr.h"
 
-#include <iomanip>
-
-time_t Field::GetTime() const
+MapDataContainer::MapDataContainer() : m_spellListContainer(sObjectMgr.GetCreatureSpellListContainer())
 {
-    std::string time = GetCppString();
-    std::tm tm = {};
-    std::stringstream ss(time);
-    ss >> std::get_time(&tm, "%Y-%m-%d %H:%M:%S");
-    return std::mktime(&tm);
+}
+
+void MapDataContainer::SetCreatureSpellListContainer(std::shared_ptr<CreatureSpellListContainer> container)
+{
+    m_spellListContainer = container;
+}
+
+CreatureSpellList* MapDataContainer::GetCreatureSpellList(uint32 Id) const
+{
+    auto itr = m_spellListContainer->spellLists.find(Id);
+    if (itr == m_spellListContainer->spellLists.end())
+        return nullptr;
+
+    return &(*itr).second;
 }

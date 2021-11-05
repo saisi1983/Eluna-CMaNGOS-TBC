@@ -449,6 +449,7 @@ Spell::Spell(WorldObject* caster, SpellEntry const* info, uint32 triggeredFlags,
     m_ignoreConcurrentCasts = m_IsTriggeredSpell || ((triggeredFlags & TRIGGERED_IGNORE_CURRENT_CASTED_SPELL) != 0) || m_spellInfo->HasAttribute(SPELL_ATTR_EX4_CAN_CAST_WHILE_CASTING);
     m_hideInCombatLog = (m_IsTriggeredSpell && !IsAutoRepeatRangedSpell(m_spellInfo)) || ((triggeredFlags & TRIGGERED_HIDE_CAST_IN_COMBAT_LOG) != 0);
     m_resetLeash = (triggeredFlags & TRIGGERED_DO_NOT_RESET_LEASH) == 0;
+    m_channelOnly = (triggeredFlags & TRIGGERED_CHANNEL_ONLY) != 0;
 
     m_clientCast = false;
 
@@ -460,6 +461,8 @@ Spell::Spell(WorldObject* caster, SpellEntry const* info, uint32 triggeredFlags,
     memcpy(m_filteringScheme, SpellTargetMgr::GetSpellTargetingData(m_spellInfo->Id).filteringScheme, sizeof(m_filteringScheme));
 
     m_scriptValue = 0;
+
+    memset(m_triggerSpellChance, -1, sizeof(m_triggerSpellChance));
 
     CleanupTargetList();
 
@@ -566,7 +569,7 @@ void Spell::FillTargetMap()
             }
         }
 
-        bool processedUnits = false; // TODO: implement adding of executionless targets which are not immune to SMSG_SPELL_GO
+        bool processedUnits = false; // TODO: Review area aura packet fills for area auras with AOE targets
         bool processedGOs = false; // likely purpose - animations
         switch (effectTargetType)
         {
@@ -577,6 +580,9 @@ void Spell::FillTargetMap()
             case TARGET_TYPE_SPECIAL_DEST:
                 OnDestTarget();
                 AddDestExecution(SpellEffectIndex(i));
+                if (effectTargetType == TARGET_TYPE_SPECIAL_DEST)
+                    if (!FillUnitTargets(targetingData, data, i))
+                        return;
                 break;
             case TARGET_TYPE_CORPSE: // can be unit and corpse
                 if (!targetingData.data[i].tempCorpseList.empty())
@@ -593,60 +599,8 @@ void Spell::FillTargetMap()
                 if (effectTargetType == TARGET_TYPE_UNIT_DEST)
                     OnDestTarget();
                 processedUnits = true;
-                for (uint8 rightTarget = 0; rightTarget < 2; ++rightTarget) // need to process target A and B separately due to effect masks
-                {
-                    bool ignored = rightTarget ? ignoredTargets.second : ignoredTargets.first;
-                    if (ignored)
-                        continue;
-                    UnitList& unitTargetList = targetingData.data[i].tmpUnitList[rightTarget];
-                    uint8 effectMask = targetMask[rightTarget];
-                    SpellTargetFilterScheme scheme = filterScheme[rightTarget];
-                    uint32 target = rightTarget ? m_spellInfo->EffectImplicitTargetB[i] : m_spellInfo->EffectImplicitTargetA[i];
-                    SpellTargetImplicitType type = SpellTargetInfoTable[target].type;
-                    if (!unitTargetList.empty()) // Unit case
-                    {
-                        for (auto itr = unitTargetList.begin(); itr != unitTargetList.end();)
-                        {
-                            if (!CheckTarget(*itr, SpellEffectIndex(i), bool(rightTarget), CheckException(targetingData.magnet)))
-                                itr = unitTargetList.erase(itr);
-                            else
-                                ++itr;
-                        }
-
-                        // Special target filter before adding targets to list
-                        FilterTargetMap(unitTargetList, scheme, targetingData.chainTargetCount[i]);
-
-                        if (m_trueCaster->IsPlayer())
-                        {
-                            Player* me = static_cast<Player*>(m_trueCaster);
-                            for (auto itr = unitTargetList.begin(); itr != unitTargetList.end(); ++itr)
-                            {
-                                Player* targetOwner = (*itr)->GetBeneficiaryPlayer();
-                                if (targetOwner && targetOwner != me && targetOwner->IsPvP() && !me->IsInDuelWith(targetOwner))
-                                {
-                                    me->UpdatePvP(true);
-                                    me->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_ENTER_PVP_COMBAT);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-
-                    if (m_spellInfo->HasAttribute(SPELL_ATTR_EX_REQUIRE_ALL_TARGETS) &&
-                        (type == TARGET_TYPE_UNIT || type == TARGET_TYPE_PLAYER))
-                    {
-                        // spells which should only be cast if a target was found
-                        if (unitTargetList.size() <= 0)
-                        {
-                            SendCastResult(SPELL_FAILED_BAD_TARGETS);
-                            finish(false);
-                            return;
-                        }
-                    }
-
-                    for (Unit* unit : unitTargetList)
-                        AddUnitTarget(unit, effectMask);
-                }
+                if (!FillUnitTargets(targetingData, data, i))
+                    return;
                 break;
             case TARGET_TYPE_LOCK:
             case TARGET_TYPE_ITEM:
@@ -701,6 +655,69 @@ void Spell::FillTargetMap()
                 break;
         }
     }
+}
+
+bool Spell::FillUnitTargets(TempTargetingData& targetingData, SpellTargetingData& data, uint32 i)
+{
+    auto& targetMask = data.targetMask[i];
+    auto& ignoredTargets = data.ignoredTargets[i];
+    auto& filterScheme = m_filteringScheme[i];
+    for (uint8 rightTarget = 0; rightTarget < 2; ++rightTarget) // need to process target A and B separately due to effect masks
+    {
+        bool ignored = rightTarget ? ignoredTargets.second : ignoredTargets.first;
+        if (ignored)
+            continue;
+        UnitList& unitTargetList = targetingData.data[i].tmpUnitList[rightTarget];
+        uint8 effectMask = targetMask[rightTarget];
+        SpellTargetFilterScheme scheme = filterScheme[rightTarget];
+        uint32 target = rightTarget ? m_spellInfo->EffectImplicitTargetB[i] : m_spellInfo->EffectImplicitTargetA[i];
+        SpellTargetImplicitType type = SpellTargetInfoTable[target].type;
+        if (!unitTargetList.empty()) // Unit case
+        {
+            for (auto itr = unitTargetList.begin(); itr != unitTargetList.end();)
+            {
+                if (!CheckTarget(*itr, SpellEffectIndex(i), bool(rightTarget), CheckException(targetingData.magnet)))
+                    itr = unitTargetList.erase(itr);
+                else
+                    ++itr;
+            }
+
+            // Special target filter before adding targets to list
+            FilterTargetMap(unitTargetList, scheme, targetingData.chainTargetCount[i]);
+
+            if (m_trueCaster->IsPlayer())
+            {
+                Player* me = static_cast<Player*>(m_trueCaster);
+                for (auto itr = unitTargetList.begin(); itr != unitTargetList.end(); ++itr)
+                {
+                    Player* targetOwner = (*itr)->GetBeneficiaryPlayer();
+                    if (targetOwner && targetOwner != me && targetOwner->IsPvP() && !me->IsInDuelWith(targetOwner))
+                    {
+                        me->UpdatePvP(true);
+                        me->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_ENTER_PVP_COMBAT);
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (m_spellInfo->HasAttribute(SPELL_ATTR_EX_REQUIRE_ALL_TARGETS) &&
+            (type == TARGET_TYPE_UNIT || type == TARGET_TYPE_PLAYER))
+        {
+            // spells which should only be cast if a target was found
+            if (unitTargetList.size() <= 0)
+            {
+                SendCastResult(SPELL_FAILED_BAD_TARGETS);
+                finish(false);
+                return false;
+            }
+        }
+
+        for (Unit* unit : unitTargetList)
+            AddUnitTarget(unit, effectMask);
+    }
+
+    return true;
 }
 
 void Spell::prepareDataForTriggerSystem()
@@ -823,6 +840,12 @@ void Spell::AddUnitTarget(Unit* target, uint8 effectMask, CheckException excepti
 
     effectMask &= (~m_partialApplicationMask); // remove partially immuned out effects
 
+    uint8 executionlessMask = 0;
+    auto& data = SpellTargetMgr::GetSpellTargetingData(m_spellInfo->Id);
+    for (uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
+        if (data.implicitType[i] == TARGET_TYPE_SPECIAL_DEST)
+            executionlessMask |= (1 << i);
+
     // Check for effect immune skip if immuned
     uint8 notImmunedMask = 0;
     for (uint8 effIndex = 0; effIndex < MAX_EFFECT_INDEX; ++effIndex)
@@ -837,8 +860,8 @@ void Spell::AddUnitTarget(Unit* target, uint8 effectMask, CheckException excepti
     {
         if (targetGUID == ihit.targetGUID)                 // Found in list
         {
-            ihit.effectMask |= effectMask;
-            ihit.effectHitMask |= notImmunedMask;
+            ihit.effectMask |= (effectMask &~ executionlessMask);
+            ihit.effectHitMask |= (notImmunedMask &~ executionlessMask);
             return;
         }
     }
@@ -859,9 +882,17 @@ void Spell::AddUnitTarget(Unit* target, uint8 effectMask, CheckException excepti
     targetInfo.diminishDuration = m_duration;
     targetInfo.diminishLevel = DIMINISHING_LEVEL_1;
     targetInfo.diminishGroup = DIMINISHING_NONE;
+    targetInfo.executionless = false;
 
     // Calculate hit result
     targetInfo.missCondition = m_ignoreHitResult ? SPELL_MISS_NONE : Unit::SpellHitResult(m_trueCaster, target, m_spellInfo, targetInfo.effectMask, m_reflectable, false, &targetInfo.heartbeatResistChance);
+
+    if ((executionlessMask & targetInfo.effectMask) != 0)
+    {
+        targetInfo.effectMask &= ~executionlessMask;
+        targetInfo.effectHitMask &= ~executionlessMask;
+        targetInfo.executionless = true;
+    }
 
     // spell fly from visual cast object
     WorldObject* affectiveObject = GetAffectiveCasterObject();
@@ -1058,12 +1089,17 @@ void Spell::AddDestExecution(SpellEffectIndex effIndex)
         else
             m_destTargetInfo.timeDelay = uint64(0);
     }
-    m_destTargetInfo.effectMask |= (1 << effIndex);
+
+    uint32 effectMask = (1 << effIndex);
+
+    effectMask &= (~m_partialApplicationMask);
+
+    m_destTargetInfo.effectMask |= effectMask;
 }
 
 void Spell::DoAllEffectOnTarget(TargetInfo* target)
 {
-    if (target->processed)                                  // Check target
+    if (target->processed || target->effectMask == 0)       // Check target
         return;
     target->processed = true;                               // Target checked in apply effects procedure
 
@@ -1501,6 +1537,9 @@ void Spell::DoAllEffectOnTarget(CorpseTargetInfo* target)
 
 void Spell::HandleImmediateEffectExecution(TargetInfo* target)
 {
+    if (target->effectMask == 0)
+        return;
+
     // Get mask of effects for target
     uint32 mask = target->effectHitMask;
 
@@ -3446,7 +3485,7 @@ void Spell::SetCastItem(Item* item)
 void Spell::SendSpellCooldown()
 {
     // (SPELL_ATTR_DISABLED_WHILE_ACTIVE) have infinity cooldown, (SPELL_ATTR_PASSIVE) passive cooldown at triggering
-    if (m_spellInfo->HasAttribute(SPELL_ATTR_PASSIVE))
+    if (m_spellInfo->HasAttribute(SPELL_ATTR_PASSIVE) || m_channelOnly)
         return;
 
     m_trueCaster->AddCooldown(*m_spellInfo, m_CastItem ? m_CastItem->GetProto() : nullptr, m_spellInfo->HasAttribute(SPELL_ATTR_DISABLED_WHILE_ACTIVE));
@@ -4028,7 +4067,7 @@ void Spell::WriteSpellGoTargets(WorldPacket& data)
 
     for (auto& ihit : m_UniqueTargetInfo)
     {
-        if (ihit.effectHitMask == 0)                       // No effect apply - all immuned add state
+        if (ihit.effectHitMask == 0 && ihit.effectMask != 0) // No effect apply - all immuned add state
         {
             // possibly SPELL_MISS_IMMUNE2 for this??
             if (IsChanneledSpell(m_spellInfo) && ihit.targetGUID == m_targets.getUnitTargetGuid()) // can happen due to DR
@@ -5029,6 +5068,12 @@ SpellCastResult Spell::CheckCast(bool strict)
         castResult = CheckCasterAuras(m_param1);
         if (castResult != SPELL_CAST_OK)
             return castResult;
+    }
+
+    if (m_channelOnly)
+    {
+        m_partialApplicationMask = EFFECT_MASK_ALL; // no effects to be executed but spell needs to go through
+        return SPELL_CAST_OK;
     }
 
     uint32 availableEffectMask = 0;
@@ -6204,10 +6249,10 @@ std::pair<float, float> Spell::GetMinMaxRange(bool strict)
     if (caster)
     {
         if (m_spellInfo->HasAttribute(SPELL_ATTR_RANGED) && caster->GetTypeId() == TYPEID_PLAYER)
-            if (Item * ranged = static_cast<Player*>(caster)->GetWeaponForAttack(RANGED_ATTACK))
+            if (Item* ranged = static_cast<Player*>(caster)->GetWeaponForAttack(RANGED_ATTACK))
                 maxRange *= ranged->GetProto()->RangedModRange * 0.01f;
 
-        if (Player * modOwner = caster->GetSpellModOwner())
+        if (Player* modOwner = caster->GetSpellModOwner())
             modOwner->ApplySpellMod(m_spellInfo->Id, SPELLMOD_RANGE, maxRange);
     }
 
@@ -6410,7 +6455,11 @@ SpellCastResult Spell::CheckPower(bool strict)
 
 bool Spell::IgnoreItemRequirements() const
 {
-    if (m_IsTriggeredSpell)
+    if (m_channelOnly)
+        return true;
+
+    // Workaround for double shard problem
+    if (m_IsTriggeredSpell || this->m_spellInfo->Id == 46546)
     {
         /// Not own traded item (in trader trade slot) req. reagents including triggered spell case
         if (Item* targetItem = m_targets.getItemTarget())
@@ -7087,6 +7136,9 @@ bool Spell::CheckTarget(Unit* target, SpellEffectIndex eff, bool targetB, CheckE
 
 bool Spell::IsNeedSendToClient() const
 {
+    if (m_channelOnly)
+        return false;
+
     return m_spellInfo->SpellVisual != 0 || IsChanneledSpell(m_spellInfo) ||
            m_spellInfo->speed > 0.0f || (!m_triggeredByAuraSpell && !m_IsTriggeredSpell);
 }

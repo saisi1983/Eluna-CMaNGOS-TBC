@@ -271,6 +271,15 @@ bool GameObject::Create(uint32 guidlow, uint32 name_id, Map* map, float x, float
             SetGoState(goinfo->transport.startOpen ? GO_STATE_ACTIVE : GO_STATE_READY);
             SetGoAnimProgress(animprogress);
             break;
+        case GAMEOBJECT_TYPE_GENERIC:
+        case GAMEOBJECT_TYPE_SPELL_FOCUS:
+        case GAMEOBJECT_TYPE_GOOBER:
+        case GAMEOBJECT_TYPE_CHEST:
+            SetUInt32Value(GAMEOBJECT_DYN_FLAGS, GO_DYNFLAG_LO_ACTIVATE | GO_DYNFLAG_LO_SPARKLE);
+            break;
+        case GAMEOBJECT_TYPE_QUESTGIVER:
+            SetUInt32Value(GAMEOBJECT_DYN_FLAGS, GO_DYNFLAG_LO_ACTIVATE);
+            break;
         default:
             break;
     }
@@ -1292,6 +1301,30 @@ void GameObject::ResetDoorOrButton()
     m_cooldownTime = 0;
 }
 
+void GameObject::UseOpenableObject(bool open, uint32 withRestoreTime /*=0*/, bool useAlternativeState /*=false*/)
+{
+    if (open)
+    {
+        if (GetGoState() == GO_STATE_READY)
+        {
+            if (GetLootState() == GO_READY)
+                UseDoorOrButton(withRestoreTime, useAlternativeState);
+            else
+                ResetDoorOrButton();
+        }
+    }
+    else
+    {
+        if (GetGoState() == GO_STATE_ACTIVE)
+        {
+            if (GetLootState() == GO_READY)
+                UseDoorOrButton(withRestoreTime, useAlternativeState);
+            else
+                ResetDoorOrButton();
+        }
+    }
+}
+
 void GameObject::UseDoorOrButton(uint32 time_to_restore, bool alternative /* = false */)
 {
     if (m_lootState != GO_READY)
@@ -1788,6 +1821,8 @@ void GameObject::Use(Unit* user, SpellEntry const* spellInfo)
 
             if (info->summoningRitual.animSpell)
                 player->CastSpell(player, info->summoningRitual.animSpell, TRIGGERED_NONE);
+            else
+                player->CastSpell(player, GetSpellId(), TRIGGERED_CHANNEL_ONLY);
 
             // full amount unique participants including original summoner, need more
             if (GetUniqueUseCount() < info->summoningRitual.reqParticipants)

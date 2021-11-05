@@ -16,16 +16,23 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-//#include "DatabaseEnv.h"
-#include "Field.h"
+#ifndef MAP_DATA_CONTAINER_H
+#define MAP_DATA_CONTAINER_H
 
-#include <iomanip>
+#include "Platform/Define.h"
+#include <memory>
 
-time_t Field::GetTime() const
+struct CreatureSpellListContainer;
+struct CreatureSpellList;
+
+class MapDataContainer
 {
-    std::string time = GetCppString();
-    std::tm tm = {};
-    std::stringstream ss(time);
-    ss >> std::get_time(&tm, "%Y-%m-%d %H:%M:%S");
-    return std::mktime(&tm);
-}
+    public:
+        MapDataContainer();
+        void SetCreatureSpellListContainer(std::shared_ptr<CreatureSpellListContainer> container);
+        CreatureSpellList* GetCreatureSpellList(uint32 Id) const;
+    private:
+        std::shared_ptr<CreatureSpellListContainer> m_spellListContainer;
+};
+
+#endif

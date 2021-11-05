@@ -27,6 +27,9 @@ class CreatureAI : public UnitAI
 {
     public:
         explicit CreatureAI(Creature* creature);
+        explicit CreatureAI(Creature* creature, uint32 combatActions);
+
+        virtual void Reset();
 
         virtual void EnterCombat(Unit* enemy) override;
         virtual void AttackStart(Unit* who) override;
@@ -46,6 +49,9 @@ class CreatureAI : public UnitAI
 
         void HandleAssistanceCall(Unit* sender, Unit* invoker) override;
 
+        void AddUnreachabilityCheck(); // use in constructor
+
+        CreatureSpellList const& GetSpellList() const;
     protected:
         Creature* m_creature;
         bool m_deathPrevention;

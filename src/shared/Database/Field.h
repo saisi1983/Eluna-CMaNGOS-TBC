@@ -76,6 +76,8 @@ class Field
             return value;
         }
 
+        time_t GetTime() const;
+
         void SetType(enum DataTypes type) { mType = type; }
         // no need for memory allocations to store resultset field strings
         // all we need is to cache pointers returned by different DBMS APIs
