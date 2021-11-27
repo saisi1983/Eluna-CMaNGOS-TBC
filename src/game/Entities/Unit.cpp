@@ -1078,7 +1078,7 @@ void Unit::Kill(Unit* killer, Unit* victim, DamageEffectType damagetype, SpellEn
             data << victim->GetObjectGuid();                // victim
 
             if (tapperGroup)
-                tapperGroup->BroadcastPacket(data, false, tapperGroup->GetMemberGroup(responsiblePlayer->GetObjectGuid()), responsiblePlayer->GetObjectGuid());
+                tapperGroup->BroadcastPacketInRange(victim, data, false, tapperGroup->GetMemberGroup(responsiblePlayer->GetObjectGuid()));
 
             responsiblePlayer->SendDirectMessage(data);
         }
@@ -4351,7 +4351,7 @@ void Unit::_UpdateSpells(uint32 time)
     std::string logging;
     for (uint32 spellId : updatedSpellIds)
         logging += std::to_string(spellId) + ",";
-    meas.add_field("spells", logging);
+    meas.add_field("spells", "\"" + logging + "\"");
 #endif
 }
 
@@ -9514,7 +9514,7 @@ bool Unit::SelectHostileTarget()
         {
             if (!GetMotionMaster()->GetCurrent()->IsReachable())
             {
-                if (!AI()->IsRangedUnit() && getThreatManager().getThreatList().size() == 1 &&
+                if (!AI()->IsRangedUnit() && getThreatManager().getThreatList().size() == 1 && target->IsFlying() &&
                     GetDistanceZ(target) > CREATURE_Z_ATTACK_RANGE_MELEE)
                 {
                     getThreatManager().modifyThreatPercent(target, -101);

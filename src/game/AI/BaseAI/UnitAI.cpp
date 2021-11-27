@@ -275,10 +275,11 @@ void UnitAI::AttackStart(Unit* who)
     if (!who || HasReactState(REACT_PASSIVE))
         return;
 
+    bool targetChange = m_unit->GetVictim() != nullptr && m_unit->GetVictim() != who;
     if (m_unit->Attack(who, m_meleeEnabled))
     {
         m_unit->EngageInCombatWith(who);
-        HandleMovementOnAttackStart(who);
+        HandleMovementOnAttackStart(who, targetChange);
     }
 }
 
@@ -322,7 +323,7 @@ bool UnitAI::IsCombatMovement() const
     return !m_unit->hasUnitState(UNIT_STAT_NO_COMBAT_MOVEMENT);
 }
 
-void UnitAI::HandleMovementOnAttackStart(Unit* victim) const
+void UnitAI::HandleMovementOnAttackStart(Unit* victim, bool targetChange) const
 {
     if (!m_unit->hasUnitState(UNIT_STAT_CAN_NOT_REACT))
     {
@@ -332,7 +333,7 @@ void UnitAI::HandleMovementOnAttackStart(Unit* victim) const
         MotionMaster* creatureMotion = m_unit->GetMotionMaster();
 
         if (!m_unit->hasUnitState(UNIT_STAT_NO_COMBAT_MOVEMENT))
-            creatureMotion->MoveChase(victim, m_attackDistance, m_attackAngle, m_moveFurther);
+            creatureMotion->MoveChase(victim, m_attackDistance, m_attackAngle, m_moveFurther, false, true, targetChange);
         // TODO - adapt this to only stop OOC-MMGens when MotionMaster rewrite is finished
         else if (creatureMotion->GetCurrentMovementGeneratorType() == WAYPOINT_MOTION_TYPE || creatureMotion->GetCurrentMovementGeneratorType() == RANDOM_MOTION_TYPE)
         {
@@ -1038,10 +1039,6 @@ void UnitAI::UpdateAI(const uint32 diff)
     if (!combat)
         return;
 
-    UpdateSpellLists();
-
-    ExecuteActions();
-
     Unit* victim = m_unit->GetVictim();
     if (m_rangedMode && victim && CanExecuteCombatAction())
     {
@@ -1068,6 +1065,10 @@ void UnitAI::UpdateAI(const uint32 diff)
                 m_unit->MeleeAttackStart(m_unit->GetVictim());
         }
     }
+
+    UpdateSpellLists();
+
+    ExecuteActions();
 
     DoMeleeAttackIfReady();
 }
@@ -1118,7 +1119,13 @@ void UnitAI::SpellListChanged()
 
 void UnitAI::UpdateSpellLists()
 {
-    if (m_spellListCooldown || !m_unit->IsInCombat() || !CanCastSpell())
+    if (m_spellListCooldown)
+        return;
+
+    ResetTimer(GENERIC_ACTION_SPELL_LIST, 1200);
+    m_spellListCooldown = true;
+
+    if (!m_unit->IsInCombat() || !CanCastSpell())
         return;
 
     CreatureSpellList const& spells = GetSpellList();
@@ -1188,8 +1195,7 @@ void UnitAI::UpdateSpellLists()
         }
     } while (!success && !eligibleSpells.empty());
 
-    ResetTimer(GENERIC_ACTION_SPELL_LIST, 1200);
-    m_spellListCooldown = true;
+
 }
 
 std::pair<bool, Unit*> UnitAI::ChooseTarget(CreatureSpellListTargeting* targetData, uint32 spellId) const
