@@ -2144,6 +2144,7 @@ Creature* WorldObject::SummonCreature(TempSpawnSettings settings, Map* map)
         }
     }
 
+    uint32 relayId = 0;
     if (settings.spawnDataEntry)
     {
         if (CreatureSpawnTemplate const* templateData = sObjectMgr.GetCreatureSpawnTemplate(settings.spawnDataEntry))
@@ -2164,6 +2165,7 @@ Creature* WorldObject::SummonCreature(TempSpawnSettings settings, Map* map)
                 creature->SetWalk(false);
             if (templateData->IsHovering())
                 creature->SetHover(true);
+            relayId = templateData->relayId;
         }
     }
 
@@ -2174,6 +2176,9 @@ Creature* WorldObject::SummonCreature(TempSpawnSettings settings, Map* map)
         creature->SetOwnerGuid(settings.ownerGuid);
 
     creature->Summon(settings.spawnType, settings.despawnTime);                  // Also initializes the AI and MMGen
+
+    if (relayId)
+        map->ScriptsStart(sRelayScripts, relayId, creature, settings.dbscriptTarget);
 
     if (settings.corpseDespawnTime)
         creature->SetCorpseDelay(settings.corpseDespawnTime);
