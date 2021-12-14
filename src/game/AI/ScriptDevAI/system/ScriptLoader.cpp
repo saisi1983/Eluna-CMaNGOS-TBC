@@ -8,8 +8,6 @@
 extern void AddSC_battleground();
 
 // custom
-extern void AddSC_profession_npc();
-extern void AddSC_skill_npc();
 
 // examples
 extern void AddSC_example_creature();
@@ -372,8 +370,6 @@ void AddScripts()
     AddSC_battleground();
 
     // custom
-    AddSC_profession_npc();
-    AddSC_skill_npc();
 
     // examples
     AddSC_example_creature();
