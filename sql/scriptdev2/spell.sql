@@ -22,6 +22,9 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (15125,'spell_effect_summon_no_follow_movement'),
 (21688,'spell_effect_summon_no_follow_movement'),
 (22372,'spell_effect_summon_no_follow_movement'),
+(4130,'spell_banish_exile'),
+(4131,'spell_banish_exile'),
+(4132,'spell_banish_exile'),
 (6467,'spell_unarmed_woodcutter'),
 (7054,'spell_forsaken_skill'),
 (12639,'spell_summon_hakkar'),
@@ -92,7 +95,9 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (28169,'spell_grobbulus_mutating_injection'),
 (28236,'spell_gluth_zombie_search'),
 (28238,'spell_gluth_zombie_search_heal'),
+(28265,'spell_scourge_strike'),
 (28374,'spell_gluth_decimate'),
+(28376,'spell_shadowguard'),
 (28408,'spell_chains_kel_thuzad'),
 (28415,'spell_trigger_KT_add'),
 (28416,'spell_trigger_KT_add'),
@@ -130,6 +135,11 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (43706,'spell_drink'),
 (46755,'spell_drink'),
 (49472,'spell_drink'),
+(28851,'spell_increased_healing_done_dummy'),
+(28853,'spell_increased_healing_done_dummy'),
+(32403,'spell_increased_healing_done_dummy'),
+(34246,'spell_increased_healing_done_dummy'),
+(34294,'spell_increased_healing_done_dummy'),
 (15600,'spell_reduced_proc_chance_past60'),
 (42144,'spell_horseman_create_water_bucket'),
 (42074,'spell_horseman_fire'),
@@ -417,6 +427,8 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (36577,'spell_effect_summon_no_follow_movement'),
 (38876,'spell_effect_summon_no_follow_movement'),
 (46875,'spell_effect_summon_no_follow_movement'),
+(41480,'spell_veras_deadly_poison'),
+(41485,'spell_veras_deadly_poison_tick'),
 (45091,'spell_spar_auras'),
 (45092,'spell_spar_auras'),
 (46801,'spell_open_portal_from_shattrath'),
@@ -483,7 +495,8 @@ INSERT INTO spell_scripts(Id, ScriptName) VALUES
 (47691,'spell_summon_mole_machine_target_picker'),
 (47375,'spell_summon_direbrew_minion'),
 (49858,'spell_make_bunny_summon_mole_machine'),
-(47514,'spell_summon_mole_machine');
+(47514,'spell_summon_mole_machine'),
+(42919,'spell_tricky_treat');
 
 -- Wotlk
 

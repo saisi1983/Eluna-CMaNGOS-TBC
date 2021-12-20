@@ -1301,6 +1301,12 @@ bool CreatureEventAI::ProcessAction(CreatureEventAI_Action const& action, uint32
         }
         case ACTION_T_SET_RANGED_MODE:
         {
+            if (!m_mainSpellInfo)
+            {
+                sLog.outErrorDb("EventAI: Creature entry %u has ranged mode action but no main spell.", m_creature->GetEntry());
+                break;
+            }
+
             SetRangedMode(action.rangedMode.type != TYPE_NONE, float(action.rangedMode.chaseDistance), RangeModeType(action.rangedMode.type));
             break;
         }
@@ -1603,8 +1609,6 @@ void CreatureEventAI::EnterCombat(Unit* enemy)
 
     m_EventUpdateTime = EVENT_UPDATE_TIME;
     m_EventDiff = 0;
-
-    CreatureAI::EnterCombat(enemy);
 }
 
 void CreatureEventAI::MoveInLineOfSight(Unit* who)

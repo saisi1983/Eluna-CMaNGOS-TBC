@@ -234,7 +234,7 @@ void MaNGOS::RespawnDo::operator()(Creature* u) const
 
     if (u->IsUsingNewSpawningSystem())
     {
-        if (u->GetCreatureGroup())
+        if (u->GetMap()->GetMapDataContainer().GetSpawnGroupByGuid(u->GetDbGuid(), TYPEID_UNIT))
             u->GetMap()->GetPersistentState()->SaveCreatureRespawnTime(u->GetDbGuid(), time(nullptr));
         else
             u->GetMap()->GetSpawnManager().RespawnCreature(u->GetDbGuid(), 0);
@@ -274,7 +274,7 @@ void MaNGOS::CallOfHelpCreatureInRangeDo::operator()(Creature* u)
         return;
 
     if (u->AI())
-        u->AI()->AttackStart(i_enemy);
+        u->AI()->OnCallForHelp(i_funit, i_enemy);
 }
 
 bool MaNGOS::AnyAssistCreatureInRangeCheck::operator()(Creature* u)
