@@ -16,8 +16,10 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+#include "Globals/ObjectMgr.h"
 #include "Maps/SpawnManager.h"
 #include "Maps/Map.h"
+#include "Maps/SpawnGroupDefines.h"
 #include "Maps/MapPersistentStateMgr.h"
 
 bool operator<(SpawnInfo const& lhs, SpawnInfo const& rhs)
