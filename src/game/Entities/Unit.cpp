@@ -1250,8 +1250,7 @@ void Unit::HandleDamageDealt(Unit* dealer, Unit* victim, uint32& damage, CleanDa
 
     if (dealer)
     {
-        if (victim->CanAttack(dealer) && (!spellProto || (!spellProto->HasAttribute(SPELL_ATTR_EX2_NO_INITIAL_THREAT) &&
-            !spellProto->HasAttribute(SPELL_ATTR_EX_NO_THREAT))) && dealer->CanEnterCombat() && victim->CanEnterCombat())
+        if (victim->CanAttack(dealer) && (!spellProto || !spellProto->HasAttribute(SPELL_ATTR_EX_NO_THREAT)) && dealer->CanEnterCombat() && victim->CanEnterCombat())
         {
             float threat = damage * sSpellMgr.GetSpellThreatMultiplier(spellProto);
             victim->AddThreat(dealer, threat, (cleanDamage && cleanDamage->hitOutCome == MELEE_HIT_CRIT), damageSchoolMask, spellProto);
@@ -4688,16 +4687,23 @@ void Unit::SetFacingTo(float ori)
         transport->CalculatePassengerOrientation(ori);
     init.SetFacing(ori);
     init.Launch();
+    // orientation change is in-place
+    UpdateSplinePosition();
+    movespline->_Finalize();
 }
 
-void Unit::SetFacingToObject(WorldObject* pObject)
+void Unit::SetFacingToObject(WorldObject* object)
 {
     // never face when already moving
     if (!IsStopped())
         return;
 
-    // TODO: figure out under what conditions creature will move towards object instead of facing it where it currently is.
-    SetFacingTo(GetAngle(pObject));
+    Movement::MoveSplineInit init(*this);
+    init.SetFacing(object);
+    init.Launch();
+    // orientation change is in-place
+    UpdateSplinePosition();
+    movespline->_Finalize();
 }
 
 bool Unit::isInAccessablePlaceFor(Unit const* unit) const
@@ -11902,7 +11908,7 @@ void Unit::UpdateSplinePosition(bool relocateOnly)
     {
         if (movespline->isFacingTarget())
         {
-            if (Unit const* target = ObjectAccessor::GetUnit(*this, ObjectGuid(movespline->GetFacing().target)))
+            if (WorldObject const* target = GetMap()->GetWorldObject(ObjectGuid(movespline->GetFacing().target)))
             {
                 pos.o = GetAngle(target);
                 faced = true;

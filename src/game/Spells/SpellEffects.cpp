@@ -4220,20 +4220,11 @@ void Spell::EffectApplyAreaAura(SpellEffectIndex eff_idx)
 
 void Spell::EffectSummonType(SpellEffectIndex eff_idx)
 {
-    // TODO add script for 35679 and 34877
-
     uint32 prop_id = m_spellInfo->EffectMiscValueB[eff_idx];
     SummonPropertiesEntry const* summon_prop = sSummonPropertiesStore.LookupEntry(prop_id);
     if (!summon_prop)
     {
         sLog.outError("EffectSummonType: Unhandled summon type %u", prop_id);
-        return;
-    }
-
-    // Pet's are atm handled differently - TODO: Unify with rest
-    if (summon_prop->Group == SUMMON_PROP_GROUP_PETS && prop_id != 1562)
-    {
-        DoSummonPet(eff_idx);
         return;
     }
 
@@ -4424,11 +4415,12 @@ void Spell::EffectSummonType(SpellEffectIndex eff_idx)
         }
         case SUMMON_PROP_GROUP_PETS:
         {
-            // FIXME : multiple summons -  not yet supported as pet
             // 1562 - force of nature  - sid 33831
             // 1161 - feral spirit - sid 51533
             if (prop_id == 1562)                            // 3 uncontrolable instead of one controllable :/
                 summonResult = DoSummonGuardian(summonPositions, summon_prop, eff_idx, level);
+            else
+                summonResult = DoSummonPet(summonPositions, summon_prop, eff_idx);
             break;
         }
         case SUMMON_PROP_GROUP_CONTROLLABLE:
@@ -4466,7 +4458,7 @@ void Spell::EffectSummonType(SpellEffectIndex eff_idx)
         if (summon_prop->FactionId)
             itr->creature->setFaction(summon_prop->FactionId);
 
-        if (!creature->IsTemporarySummon())
+        if (!itr->processed)
         {
             m_trueCaster->GetMap()->Add(creature);
 
@@ -4484,6 +4476,8 @@ void Spell::EffectSummonType(SpellEffectIndex eff_idx)
 
         OnSummon(creature);
 
+        m_spellLog.AddLog(uint32(SPELL_EFFECT_SUMMON), creature->GetPackGUID());
+
         if (summon_prop->Flags & SUMMON_PROP_FLAG_ATTACK_SUMMONER && m_caster)
             if (m_caster->CanEnterCombat() && creature->CanEnterCombat() && creature->CanAttack(m_caster))
                 creature->AI()->AttackStart(m_caster);
@@ -4491,17 +4485,17 @@ void Spell::EffectSummonType(SpellEffectIndex eff_idx)
         if (summon_prop->Flags & SUMMON_PROP_FLAG_HELP_WHEN_SUMMONED_IN_COMBAT && m_caster)
             if (m_caster->CanEnterCombat() && creature->CanEnterCombat() && creature->CanAssist(m_caster) && m_caster->GetVictim())
                 creature->AI()->AttackStart(m_caster->GetVictim()); // maybe needs to help with everything around not just main target
-
-        m_spellLog.AddLog(uint32(SPELL_EFFECT_SUMMON), creature->GetPackGUID());
     }
 }
 
-bool Spell::DoSummonPet(SpellEffectIndex eff_idx)
+bool Spell::DoSummonPet(CreatureSummonPositions& list, SummonPropertiesEntry const* prop, SpellEffectIndex effIdx)
 {
+	MANGOS_ASSERT(!list.empty() && prop);
+
     if (m_caster->GetPetGuid())
         return false;
 
-    uint32 pet_entry = m_spellInfo->EffectMiscValue[eff_idx];
+    uint32 pet_entry = m_spellInfo->EffectMiscValue[effIdx];
     if (!pet_entry)
         return false;
 
@@ -4509,9 +4503,9 @@ bool Spell::DoSummonPet(SpellEffectIndex eff_idx)
 
     Player* _player = nullptr;
 
-    Position spawnPos(m_targets.m_destPos.x, m_targets.m_destPos.y, m_targets.m_destPos.z, -m_caster->GetOrientation());
+    Position spawnPos(list[0].x, list[0].y, list[0].z, m_caster->GetOrientation());
 
-    if (m_caster->GetTypeId() == TYPEID_PLAYER)
+    if (m_caster->IsPlayer())
     {
         _player = static_cast<Player*>(m_caster);
 
@@ -4527,8 +4521,7 @@ bool Spell::DoSummonPet(SpellEffectIndex eff_idx)
                 spawnCreature->SetDuration(m_duration);
 
             spawnCreature->SavePetToDB(PET_SAVE_AS_CURRENT, _player);
-            OnSummon(spawnCreature);
-            m_spellLog.AddLog(uint32(SPELL_EFFECT_SUMMON), spawnCreature->GetPackGUID());
+            list[0].creature = spawnCreature;
             return true;
         }
 
@@ -4567,7 +4560,7 @@ bool Spell::DoSummonPet(SpellEffectIndex eff_idx)
     spawnCreature->SetLoading(true);
 
     // Level of pet summoned
-    uint32 level = std::max(m_caster->GetLevel() + m_spellInfo->EffectMultipleValue[eff_idx], 1.0f);
+    uint32 level = std::max(m_caster->GetLevel() + m_spellInfo->EffectMultipleValue[effIdx], 1.0f);
 
     spawnCreature->SetRespawnCoord(pos);
 
@@ -4625,13 +4618,8 @@ bool Spell::DoSummonPet(SpellEffectIndex eff_idx)
     }
     spawnCreature->SetLoading(false);
 
-    // Notify original caster if not done already
-    if (m_caster->AI())
-        m_caster->AI()->JustSummoned(spawnCreature);
-
-    OnSummon(spawnCreature);
-
-    m_spellLog.AddLog(uint32(SPELL_EFFECT_SUMMON), spawnCreature->GetPackGUID());
+    list[0].creature = spawnCreature;
+    list[0].processed = true;
     return true;
 }
 
@@ -4958,6 +4946,7 @@ bool Spell::DoSummonWild(CreatureSummonPositions& list, SummonPropertiesEntry co
                 IsSpellSetRun(m_spellInfo), 0, 0, 0, false, false, m_spellInfo->Id), m_trueCaster->GetMap()))
         {
             itr.creature = summon;
+            itr.processed = true;
 
             switch(m_spellInfo->Id)
             {
