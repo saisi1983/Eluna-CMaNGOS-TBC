@@ -732,7 +732,7 @@ class Creature : public Unit
 
         void DoFleeToGetAssistance();
         void CallForHelp(float radius);
-        void CallAssistance();
+        void CallAssistance(Unit* enemy = nullptr);
         void SetNoCallAssistance(bool val) { m_AlreadyCallAssistance = val; }
         void SetNoSearchAssistance(bool val) { m_AlreadySearchedAssistance = val; }
         bool HasSearchedAssistance() { return m_AlreadySearchedAssistance; }

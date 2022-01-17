@@ -1973,7 +1973,7 @@ void ObjectMgr::LoadCreatures()
             data.spawntimesecsmax = data.spawntimesecsmin;
         }
 
-        if (mapEntry->IsDungeon())
+        if (mapEntry->IsDungeon() || mapEntry->IsBattleGround())
         {
             if (data.spawnMask & ~SPAWNMASK_DUNGEON_ALL)
                 sLog.outErrorDb("Table `creature` have creature (GUID: %u) that have wrong spawn mask %u for non-raid dungeon map (Id: %u).", guid, data.spawnMask, data.mapid);
@@ -2208,7 +2208,7 @@ void ObjectMgr::LoadGameObjects()
             continue;
         }
 
-        if (mapEntry->IsDungeon())
+        if (mapEntry->IsDungeon() || mapEntry->IsBattleGround())
         {
             if (data.spawnMask & ~SPAWNMASK_DUNGEON_ALL)
                 sLog.outErrorDb("Table `gameobject` have gameobject (GUID: %u Entry: %u) that have wrong spawn mask %u for dungeon map (Id: %u), skip", guid, data.id, data.spawnMask, data.mapid);
