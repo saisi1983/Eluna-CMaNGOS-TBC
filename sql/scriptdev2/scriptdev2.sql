@@ -219,6 +219,7 @@ INSERT INTO scripted_event_id VALUES
 /* War Effort*/
 UPDATE creature_template SET ScriptName='npc_war_effort' WHERE
 entry IN(15383,15431,15432,15434,15437,15445,15446,15448,15450,15451,15452,15453,15455,15456,15457,15459,15460,15469,15477,15508,15512,15515,15522,15525,15528,15529,15532,15533,15534,15535);
+UPDATE gameobject_template SET ScriptName='go_scarab_gong' WHERE entry=180717; -- The Scarab Gong
 
 /*Midsummer*/
 UPDATE gameobject_template SET ScriptName='go_midsummer_bonfire' WHERE entry IN(187946,187945,187944,187943,187942,187941,187940,187939,187938,187937,187936,187935,187934,187933,187932,187931,187930,187929,187928,187927,187926,187925,187924,187923,187922,187921,187920,187919,187917,187916,187914,187564,187971,187973,187952,187963,187950,187961,187959,187957,187968,187948,187953,187970,187966,187975,187969,187951,187956,187954,187947,187972,187964,187559,187965,187949,187955,187967,187958,187974,187960,187962,181332,181333,181334,181335,181336,181337,188128,188129);
@@ -321,6 +322,7 @@ UPDATE creature_template SET ScriptName='boss_grandmaster_vorpil' WHERE entry=18
 UPDATE creature_template SET ScriptName='boss_blackheart_the_inciter' WHERE entry=18667;
 UPDATE creature_template SET ScriptName='boss_ambassador_hellmaw' WHERE entry=18731;
 UPDATE creature_template SET ScriptName='npc_void_traveler' WHERE entry=19226;
+UPDATE creature_template SET ScriptName='dummy_blackheart_the_inciter' WHERE entry IN(19300,19301,19302,19303,19304);
 UPDATE gameobject_template SET ScriptName='go_screaming_hall_door' WHERE entry=183295;
 
 /* AZSHARA */
@@ -790,7 +792,6 @@ UPDATE gameobject_template SET ScriptName='go_manticron_cube' WHERE entry=181713
 UPDATE creature_template SET ScriptName='boss_magtheridon' WHERE entry=17257;
 UPDATE creature_template SET ScriptName='mob_abyssal' WHERE entry=17454;
 UPDATE creature_template SET ScriptName='mob_hellfire_channeler' WHERE entry=17256;
-UPDATE creature_template SET ScriptName='npc_target_trigger' WHERE entry=17474;
 
 /* HELLFIRE PENINSULA */
 UPDATE creature_template SET ScriptName='boss_doomlord_kazzak' WHERE entry=18728;
