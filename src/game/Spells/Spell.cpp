@@ -3775,7 +3775,7 @@ void Spell::finish(bool ok)
     if (!m_TriggerSpells.empty())
         CastTriggerSpells();
 
-    if (m_caster)
+    if (!m_IsTriggeredSpell && !m_trueCaster->IsGameObject())
         m_caster->RemoveAurasOnCast(AURA_INTERRUPT_FLAG_ACTION_LATE, m_spellInfo);
 
     // Stop Attack for some spells
@@ -5919,7 +5919,7 @@ SpellCastResult Spell::CheckCast(bool strict)
                     {
                         SpellCastResult result = partialApplication(i);
                         if (result != SPELL_CAST_OK)
-                            return result;
+                            return SPELL_FAILED_TARGET_NO_WEAPONS;
                     }
                 }
                 break;
@@ -6605,7 +6605,7 @@ SpellCastResult Spell::CheckItems()
     // if not item target then required item must be equipped (for triggered case not report error)
     else
     {
-        if (m_caster->GetTypeId() == TYPEID_PLAYER && !((Player*)m_caster)->HasItemFitToSpellReqirements(m_spellInfo))
+        if (m_caster->IsPlayer() && !static_cast<Player*>(m_caster)->HasItemFitToSpellReqirements(m_spellInfo))
             return m_IsTriggeredSpell ? SPELL_FAILED_DONT_REPORT : SPELL_FAILED_EQUIPPED_ITEM_CLASS;
     }
 

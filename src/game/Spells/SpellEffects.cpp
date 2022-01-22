@@ -4472,7 +4472,7 @@ void Spell::EffectSummonType(SpellEffectIndex eff_idx)
 
 bool Spell::DoSummonPet(CreatureSummonPositions& list, SummonPropertiesEntry const* prop, SpellEffectIndex effIdx)
 {
-	MANGOS_ASSERT(!list.empty() && prop);
+    MANGOS_ASSERT(!list.empty() && prop);
 
     if (m_caster->GetPetGuid())
         return false;
@@ -4599,6 +4599,10 @@ bool Spell::DoSummonPet(CreatureSummonPositions& list, SummonPropertiesEntry con
             spawnCreature->SavePetToDB(PET_SAVE_AS_CURRENT, _player);
     }
     spawnCreature->SetLoading(false);
+
+    // Notify original caster if not done already
+    if (m_caster->AI())
+        m_caster->AI()->JustSummoned(spawnCreature);
 
     list[0].creature = spawnCreature;
     list[0].processed = true;
