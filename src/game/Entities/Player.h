@@ -2336,6 +2336,8 @@ class Player : public Unit
 
         Spell* GetSpellModSpell() { return m_modsSpell; }
         void SetSpellModSpell(Spell* spell);
+
+        uint32 LookupHighestLearnedRank(uint32 spellId);
     protected:
         /*********************************************************/
         /***               BATTLEGROUND SYSTEM                 ***/
