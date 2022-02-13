@@ -50,7 +50,12 @@ if(NOT BUILD_ELUNA)
       endif ()
   endforeach()
 else()
-add_definitions(-DBUILD_ELUNA -DCMANGOS -DTBC)
+add_definitions(-DBUILD_ELUNA -DCMANGOS -DCTBC)
+add_subdirectory(LuaEngine)
+endif()
+
+if (BUILD_ELUNA_MODULES)
+  add_definitions(-DELUNA_MODULES -DLUA_COMPAT_MODULE)
 endif()
 
 if(NOT BUILD_PLAYERBOT)

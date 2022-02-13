@@ -14,8 +14,15 @@ set(lua_STAT_SRCS
   ${sources}
 )
 
-add_library(lualib STATIC ${lua_STAT_SRCS})
-
+if(BUILD_ELUNA_MODULES)
+  if(WIN32)
+      add_definitions(-DLUA_BUILD_AS_DLL)
+  endif()
+  add_definitions(-DLUA_COMPAT_MODULE)
+  add_library(lualib SHARED ${lua_STAT_SRCS})
+else()
+  add_library(lualib STATIC ${lua_STAT_SRCS})
+endif()
 
 target_include_directories(lualib
   PUBLIC

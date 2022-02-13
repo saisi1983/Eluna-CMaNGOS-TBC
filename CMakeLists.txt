@@ -351,6 +351,11 @@ if(NOT BUILD_GAME_SERVER AND BUILD_PLAYERBOT)
   message(STATUS "BUILD_PLAYERBOT forced to OFF due to BUILD_GAME_SERVER is not set")
 endif()
 
+if(NOT BUILD_ELUNA AND BUILD_ELUNA_MODULES)
+  set(BUILD_ELUNA_MODULES OFF)
+  message(STATUS "BUILD_ELUNA_MODULES forced to OFF due to BUILD_ELUNA is not set")
+endif()
+
 if(PCH)
   if(${CMAKE_VERSION} VERSION_LESS "3.16") 
     message("PCH is not supported by your CMake version")

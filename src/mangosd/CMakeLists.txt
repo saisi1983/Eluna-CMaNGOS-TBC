@@ -89,6 +89,11 @@ if(WIN32)
     add_custom_command(TARGET ${EXECUTABLE_NAME} POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E copy_if_different \"${CMAKE_SOURCE_DIR}/contrib/lua_scripts/masterscript.lua\" \"$<TARGET_FILE_DIR:${EXECUTABLE_NAME}>/lua_scripts/masterscript.lua\")
   endif()
+  
+  if(BUILD_ELUNA_MODULES)
+    add_custom_command(TARGET ${EXECUTABLE_NAME} POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different \"${PROJECT_BINARY_DIR}/dep/lualib/$<CONFIG>/lualib.dll\" \"$<TARGET_FILE_DIR:${EXECUTABLE_NAME}>/lualib.dll\")
+  endif()
 endif()
 
 set(EXECUTABLE_LINK_FLAGS "")
