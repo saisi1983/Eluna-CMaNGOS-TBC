@@ -137,6 +137,8 @@ void Totem::UnSummon()
     CombatStop(true);
     RemoveAurasDueToSpell(GetSpell());
 
+    AI()->OnUnsummon();
+
     if (Unit* owner = GetOwner())
     {
         owner->_RemoveTotem(this);
