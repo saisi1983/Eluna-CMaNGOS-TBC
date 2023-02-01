@@ -23,19 +23,13 @@ jobs:
             COMPILER_CC: gcc-12
             COMPILER_PP: g++-12
             USE_PCH: ON
-            EXTRA_BUILD: ""
+            EXTRA_BUILD: "-DBUILD_ELUNA=ON -DBUILD_IKEBOTS=ON -DBUILD_SOLOCRAFT=ON "
 
           - os: ubuntu-22.04
             COMPILER_CC: clang
             COMPILER_PP: clang++
             USE_PCH: ON
-            EXTRA_BUILD: "-DBUILD_EXTRACTORS=ON -DBUILD_AHBOT=ON -DBUILD_PLAYERBOT=ON "
-
-          - os: ubuntu-22.04
-            COMPILER_CC: clang
-            COMPILER_PP: clang++
-            USE_PCH: OFF
-            EXTRA_BUILD: ""
+            EXTRA_BUILD: "-DBUILD_EXTRACTORS=ON -DBUILD_ELUNA=ON -DBUILD_IKEBOTS=ON -DBUILD_SOLOCRAFT=ON "
 
     steps:
       - name: Checkout

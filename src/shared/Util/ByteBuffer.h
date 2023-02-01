@@ -49,6 +49,7 @@ struct Unused
 class ByteBuffer
 {
     public:
+        const static size_t DEFAULT_SIZE = 0x1000;
 
         explicit ByteBuffer(size_t reservedSize = s_defaultSize): _rpos(0), _wpos(0)
         {
