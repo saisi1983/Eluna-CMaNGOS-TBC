@@ -76,6 +76,15 @@
  #include "Metric/Metric.h"
 #endif
 
+#ifdef ENABLE_PLAYERBOTS
+#include "AhBot.h"
+#include "PlayerbotAIConfig.h"
+#include "RandomPlayerbotMgr.h"
+#endif
+
+#include "Metric/Metric.h"
+#include "Maps/TransportMgr.h"
+
 #include <algorithm>
 #include <mutex>
 #include <cstdarg>
@@ -99,6 +108,11 @@ uint32 World::m_relocation_ai_notify_delay = 1000u;
 uint32 World::m_currentMSTime = 0;
 TimePoint World::m_currentTime = TimePoint();
 uint32 World::m_currentDiff = 0;
+uint32 World::m_currentDiffSum = 0;
+uint32 World::m_currentDiffSumIndex = 0;
+uint32 World::m_averageDiff = 0;
+uint32 World::m_maxDiff = 0;
+list<uint32> World::m_histDiff;
 
 /// World constructor
 World::World() : mail_timer(0), mail_timer_expires(0), m_NextDailyQuestReset(0), m_NextWeeklyQuestReset(0), m_NextMonthlyQuestReset(0), m_opcodeCounters(NUM_MSG_TYPES)
@@ -111,6 +125,7 @@ World::World() : mail_timer(0), mail_timer_expires(0), m_NextDailyQuestReset(0),
     m_startTime = m_gameTime;
     m_maxActiveSessionCount = 0;
     m_maxQueuedSessionCount = 0;
+    m_maxDiff = 0;
 
     m_defaultDbcLocale = DEFAULT_LOCALE;
     m_availableDbcLocaleMask = 0;
@@ -150,6 +165,9 @@ World::~World()
 /// Cleanups before world stop
 void World::CleanupsBeforeStop()
 {
+#ifdef ENABLE_PLAYERBOTS
+    sRandomPlayerbotMgr.LogoutAllBots();
+#endif
     KickAll(true);                                   // save and kick all players
     UpdateSessions(1);                               // real players unload required UpdateSessions call
     sBattleGroundMgr.DeleteAllBattleGrounds();       // unload battleground templates before different singletons destroyed
@@ -1433,6 +1451,9 @@ void World::SetInitialWorldSettings()
 #ifdef BUILD_PLAYERBOT
     PlayerbotMgr::SetInitialWorldSettings();
 #endif
+#ifdef ENABLE_PLAYERBOTS
+    sPlayerbotAIConfig.Initialize();
+#endif
     sLog.outString("---------------------------------------");
     sLog.outString("      CMANGOS: World initialized       ");
     sLog.outString("---------------------------------------");
@@ -1495,6 +1516,59 @@ void World::Update(uint32 diff)
     m_currentMSTime = WorldTimer::getMSTime();
     m_currentTime = std::chrono::time_point_cast<std::chrono::milliseconds>(Clock::now());
     m_currentDiff = diff;
+    m_currentDiffSum += diff;
+    m_currentDiffSumIndex++;
+    m_histDiff.push_back(diff);
+    m_maxDiff = std::max(m_maxDiff, diff);
+
+    while (m_histDiff.size() >= 600)
+    {
+        m_currentDiffSum -= m_histDiff.front();
+        m_histDiff.pop_front();
+    }
+
+    m_averageDiff = (uint32)(m_currentDiffSum / m_histDiff.size());
+
+    if (m_currentDiffSumIndex && m_currentDiffSumIndex % 60 == 0)
+    {
+        //m_averageDiff = (uint32)(m_currentDiffSum / m_currentDiffSumIndex);
+         //if (m_maxDiff < m_averageDiff)
+         //    m_maxDiff = m_averageDiff;
+        sLog.outDebug("Avg Diff: %u. Sessions online: %u.", m_averageDiff, (uint32)GetActiveSessionCount());
+        sLog.outDebug("Max Diff: %u.", m_maxDiff);
+    }
+    if (m_currentDiffSum % 3000 == 0)
+    {
+        m_maxDiff = *std::max_element(m_histDiff.begin(), m_histDiff.end());
+    }
+    /*
+    if (m_currentDiffSum > 300000)
+    {
+        m_currentDiffSum = 0;
+        m_currentDiffSumIndex = 0;
+        if (m_maxDiff > m_averageDiff)
+        {
+            m_maxDiff = m_averageDiff;
+            sLog.outBasic("Max Diff reset to: %u.", m_maxDiff);
+        }
+    }
+    if (GetActiveSessionCount())
+    {
+        if (m_currentDiffSumIndex && (m_currentDiffSumIndex % 5 == 0))
+        {
+            uint32 tempDiff = (uint32)(m_currentDiffSum / m_currentDiffSumIndex);
+            if (tempDiff > m_averageDiff)
+            {
+                m_averageDiff = tempDiff;
+            }
+            if (m_maxDiff < tempDiff)
+            {
+                m_maxDiff = tempDiff;
+                sLog.outBasic("Max Diff Increased: %u.", m_maxDiff);
+            }
+        }
+    }
+    */
 
     ///- Update the different timers
     for (auto& m_timer : m_timers)
@@ -1549,6 +1623,19 @@ void World::Update(uint32 diff)
         sAuctionHouseBot.Update();
         m_timers[WUPDATE_AHBOT].Reset();
     }
+#endif
+
+#ifdef ENABLE_PLAYERBOTS
+#ifndef BUILD_AHBOT
+    /// <li> Handle AHBot operations
+    if (m_timers[WUPDATE_AHBOT].Passed())
+    {
+        auctionbot.Update();
+        m_timers[WUPDATE_AHBOT].Reset();
+    }
+#endif
+    sRandomPlayerbotMgr.UpdateAI(diff);
+    sRandomPlayerbotMgr.UpdateSessions(diff);
 #endif
 
     /// <li> Handle session updates
@@ -2148,6 +2235,7 @@ void World::UpdateResultQueue()
     CharacterDatabase.ProcessResultQueue();
     WorldDatabase.ProcessResultQueue();
     LoginDatabase.ProcessResultQueue();
+    PlayerbotDatabase.ProcessResultQueue();
 }
 
 void World::UpdateRealmCharCount(uint32 accountId)
